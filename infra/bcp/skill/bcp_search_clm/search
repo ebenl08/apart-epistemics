@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+"""search "<query>" [k]  -- BM25 search; output wrapped in <<<Rnnnn BEGIN ... Rnnnn END>>>."""
+import json, os, sys, urllib.parse, urllib.request
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+from _rid import next_rid
+if len(sys.argv) < 2 or not sys.argv[1].strip():
+    sys.exit('usage: search "<query>" [k<=10]')
+k = min(int(sys.argv[2]) if len(sys.argv) > 2 else 10, 10)
+base = os.environ.get("BCP_SEARCH_URL", "http://127.0.0.1:8100")
+url = f"{base}/search?" + urllib.parse.urlencode({"q": sys.argv[1], "k": k})
+res = json.load(urllib.request.urlopen(url, timeout=60))
+rid = next_rid()
+print(f"<<<{rid} BEGIN search {sys.argv[1]!r}")
+for i, r in enumerate(res["results"], 1):
+    print(f"[{i}] docid={r['docid']} score={r['score']} url={r['url']}")
+    print(r["snippet"].strip())
+    print()
+print(f"{rid} END>>>")
