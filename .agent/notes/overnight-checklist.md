@@ -26,7 +26,7 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [ ] A3 full 4B + clm: LogTriage 4 levels × 2 seeds (8) → `m2b-logtriage-results.md`, plot, commit
 - [ ] A4 full 4B + clm: Needle 4 levels × 2 seeds (8) → `m2c-needle-results.md`, plot, commit
 - [ ] A5 (only if A2 is OK) full 4B + clm Sudoku 4 levels × 2 seeds
-- [ ] A6 BCP variant smoke: same 5 questions + our BCP method text (offload search results to
+- [x] A6 BCP variant smoke (v1 0/5, v2 1/5, v3 2/5 correct) → 50-q run with v3 started 19:02: same 5 questions + our BCP method text (offload search results to
       notes, write a provisional answer early). Our addition, labeled as a deviation.
       ≥ 2/5 answered → run the 50-question sample with it; otherwise stop BCP.
 

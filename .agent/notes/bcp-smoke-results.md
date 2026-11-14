@@ -72,3 +72,40 @@ verifier writes `reward.json`). The model is the bottleneck:
 answer) — our addition, not the paper's; (b) `k=3-5` / shorter snippets — deviates from
 the plan's top-10 x 512; (c) instruct "write a provisional answer early"; (d) run as-is
 and report 4B as below floor.
+
+## Variants v2 / v3: our BCP method text (2026-11-14, 18:48–19:01 UTC)
+
+Our addition, **not the paper's setup**: the paper's BCP runs give no method text. Same 5
+questions, same `bcp.yaml` settings, same substring grader.
+
+- Tools now wrap every output in `<<<R0007 BEGIN ... R0007 END>>>` (unique anchor per result).
+- Method text ([`infra/bcp/skill/bcp_search_clm/SKILL.md`](../../infra/bcp/skill/bcp_search_clm/SKILL.md)),
+  modelled on the paper's KV recipe: one `python3` heredoc per result that writes a one-line
+  note to `/app/notes.md`, moves the block to `/tmp/ctx_offload/`, replaces it with the note,
+  `&& search` next. Plus: write a provisional `/app/answer.md` as soon as there is a candidate.
+- **v2**: method text in the skill's SKILL.md (system prompt). `BCP_SKILL=bcp_search_clm`.
+- **v3**: same method text inserted into the task instruction before `## Output`, as
+  ContextBench places its method section; skill = tools only. `BCP_SKILL=bcp_search_ids
+  BCP_TASKS=bcp_tasks_v3` (built by [`infra/bcp/make_v3_tasks.py`](../../infra/bcp/make_v3_tasks.py)).
+
+| QID | v1 (as configured) | v2 (method in system prompt) | v3 (method in instruction) |
+|---|---|---|---|
+| 69 | 0, no answer, 0 edits | **1** (Chikwe), 4 edits, 36 calls | **1** (Chikwe), 1 edit, 12 calls |
+| 624 | 0, no answer, 0 edits | 0, answered wrong (conf 100%), 1 edit | **1**, answered |
+| 427 | 0, quit at call 1 | 0, no answer, 0 edits | 0, no answer, 3 edits |
+| 679 | 0, no answer, 1 edit | 0, no answer, 1 edit | 0, quit at call 1 |
+| 1204 | 0, no answer, 0 edits | 0, no answer, 0 edits | 0, no answer, 0 edits |
+| **answered / correct** | 0 / 0 | 2 / 1 | **2 / 2** |
+
+### Analysis
+
+- The method text moves BCP off zero, but adoption is weak: most trials still make 0–1
+  edits, far from KV's one-edit-per-batch. Successes came from batching: v3 69 offloaded
+  four result blocks in one edit, then answered from `/tmp/ctx_offload`.
+- Placement matters a little (v3 ≥ v2 here), consistent with ContextBench putting the
+  method in the instruction. n = 5, so this is a direction, not a result.
+- Remaining failure modes: quitting at call 1 (427, 679), ignoring the recipe and
+  searching until the wall (1204 in all three variants), and confident wrong answers.
+- Decision (rule set before the run: ≥ 2/5 answered → run 50): **run the 50-question
+  sample with v3** → [`bcp50-v3-results.md`](bcp50-v3-results.md). Note the 5 smoke tasks
+  were rebuilt for the 50 run; the instruction differs from the smoke v3 copy by one blank line.

@@ -75,3 +75,6 @@ User rule: skip Sudoku if it stays problematic. Smoke (4B + clm, t8, paper setti
 
 ## 2026-11-14 18:52 UTC — Sandbox roots made unique per trial
 `infra/chroot_env.py` named the trial root `<task>__env`, so two concurrent trials of the same task (skill none vs clm) shared and deleted one root (StreamIdentityError in 7 smoke trials, all rerun). Root now gets a random 8-hex suffix.
+
+## 2026-11-14 19:02 UTC — BCP: run the 50-question sample with our method text (v3)
+BCP as configured answered 0/5 (4B never offloads search results). Our variant v3 puts a KV-style offload recipe + "keep a provisional answer on disk" into the task instruction and wraps tool outputs in id'd blocks: 2/5 correct on the smoke set (v2, same text in the system prompt: 1/5). Rule fixed before the run (≥2/5 answered → run 50) met, so the 50-question sample runs with v3, labeled as our deviation from the paper (no BCP method text there). Graded with the substring grader only; judge deferred.
