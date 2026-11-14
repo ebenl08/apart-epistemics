@@ -38,10 +38,10 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [x] B3c LogTriage 9B + clm: mean 0.31 vs 4B 0.87; walls, dumps, chat-text answers, dropped offloads → [m2b-logtriage-9b-results.md](m2b-logtriage-9b-results.md) (committed)
 - [ ] B4 extra seeds 44/45, KV R1000 / R4000 / R16000, 9B + clm (6, since 20:34): is 9B < 4B on KV robust?
 
-- [ ] B5 BCP 50 q with v3 on 9B (since 21:04; GPU was idle): 4B vs 9B on BCP, same setup
+- [x] B5 BCP 50 q v3 on 9B: 12/50 strict, 13 after hand check (4B: 10) → [bcp50-v3-9b-results.md](bcp50-v3-9b-results.md) (committed)
 
 ## Phase C: back to 4B (after all 9B trials finish)
-- [ ] C1 swap server back to 4B
+- [x] C1 server back to 4B (22:26 UTC)
 - [ ] C2 same extra seeds 44/45 KV for 4B + clm (6) → update m2-kv-9b-results.md with 4 seeds per level, plot, commit
 
 ## Throughout
