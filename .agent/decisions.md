@@ -24,3 +24,9 @@ Every plan defines milestones (subgoals/checklist items). After each single mile
 
 ## 2026-11-14 +08 — Literature search done first
 User chose to do the literature search before any code. Output: `.agent/literature.md` (~45 entries, agent-verified links; "snippet" entries not opened). Gap: no existing work tests uncertainty on model-driven edit decisions. Top picks: CLM 2609.37725, Self-Compacting LM Agents 2606.23525, Lost in Context Compaction 2608.11242, Do I Know This Entity 2411.14257 + refusal direction 2406.11717, Two Axes of Abstention 2607.08456.
+
+## 2026-11-14 +08 — Qwen3.5-4B for reproduction and interp
+Use Qwen3.5-4B (not Qwen3.6-27B) so the same model serves reproduction and mech interp. Go/no-go via smoke test; fall back to Qwen3.5-9B if 4B cannot edit context. Plan in `.agent/instruction-reimplementation.md`.
+
+## 2026-11-14 +08 — ContextBench first, BCP second
+ContextBench runs from the repo; BCP needs corpus, search skill and judge built. Reproduction target for ContextBench is the paper's App. F no-skill Qwen3.6-27B numbers, not Fig 2 (GPT-5.4).
