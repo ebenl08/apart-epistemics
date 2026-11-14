@@ -45,8 +45,8 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [x] C2 extra seeds 44/45 KV 4B + clm: R1000 1/1, **R4000 0/0**, R16000 1/1 → 4-seed table in [m2-kv-9b-results.md](m2-kv-9b-results.md) (committed)
 
 ## Throughout
-- [ ] GPU/CPU log `runs/logs/util-*.csv`; add a utilization summary to every write-up
-- [ ] Disk: `/` free > 5 GB, `/workspace` < 45 GB (quota ~54 GB). Never delete weights or caches.
-- [ ] Commit only notes, plots and infra scripts (`runs/`, `data/` are gitignored)
-- [ ] Update the handoff file at the end
-- [ ] When everything is done: `git push origin reimplementation-m1` (user request, 19:30 UTC)
+- [x] GPU/CPU log `runs/logs/util-bcp-smoke-m2.csv` (30 s, 18:23 → end); summaries in the write-ups (GPU ~100% throughout, CPU 10–18%)
+- [x] Disk: `/` free stayed 7.8–11 GB; `/workspace` ~28 GB. Nothing deleted.
+- [x] Commit only notes, plots and infra scripts (`runs/`, `data/` are gitignored)
+- [x] Handoff updated ([handoff-reimplementation.md](../handoff/handoff-reimplementation.md))
+- [x] `git push origin reimplementation-m1` (user request, 19:30 UTC), 22:56 UTC
