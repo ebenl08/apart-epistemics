@@ -39,3 +39,30 @@ Use `skill=none` with App. F settings (32000 budget, 4096 reserve, 240 turns) in
 
 ## 2026-11-14 +08 — Final reproduction setup
 A40 hardware. ContextBench: KV Store + Sudoku, `skill=none`, App. F settings, levels 0.5×/2×/8×/24× × 2 seeds (16 trials), timeout 28800 s. BCP: 50 questions, `bcp.yaml`, judge Qwen3.5-27B-GPTQ-Int4. All trials concurrent, longest first. Supersedes the earlier subset entry.
+
+## 2026-11-14 15:52 UTC — Chroot sandbox instead of Docker (option 3)
+Host is a RunPod container: 1x A40, 96 cores, no Docker/Singularity, no CAP_SYS_ADMIN (no mounts or namespaces), but CAP_SYS_CHROOT. Harbor trials run through a custom environment `infra/chroot_env.py:ChrootEnvironment`: a private copy of the python:3.12-slim rootfs per trial (pulled from Docker Hub, digest in /root/rootfs/py312slim.digest). Deviations from Docker: no CPU/memory limits, no network isolation, no /proc, /dev/null is a regular file truncated before every exec (mknod blocked). User chose option 3 (serve the model now, work out the sandbox in parallel).
+
+## 2026-11-14 15:52 UTC — Serving: vLLM 0.33.0, one shared server
+Qwen3.5-4B BF16 on vLLM 0.33.0 (`infra/serve_qwen35_4b.sh`): max-model-len 65536, `--language-model-only`, parsers qwen3_coder/qwen3 (confirmed by the model card), prefix caching on. KV cache 945k tokens. Only 1 GPU, so ContextBench and BCP share this server.
+
+## 2026-11-14 15:52 UTC — ContextBench under data/
+ContextBench cloned at `data/ContextBench` (commit fb533c1), packaged tasks in `data/cb_tasks` (KV + Sudoku, seeds 42/43, agent timeout 28800 s). `data/` is gitignored (user request).
+
+## 2026-11-14 17:51 UTC — M1 result: keep Qwen3.5-4B, use skill=clm
+M1 + M1b (seed 42, KV R260 / Sudoku t8): 4B+none 0/24, 7/8; 4B+clm 22/24, 0/8 (one dropped move); 9B+none 0/24, 6/8. No model edits context without the skill; 9B does not help. Keep 4B (mech interp). ContextBench reference becomes the paper's CLM condition (skill=clm), not App. F no-skill. Details: `.agent/notes/m1-smoke-results.md`.
+
+## 2026-11-14 17:51 UTC — Sandbox switched to proot
+User approved installing proot (apt, 5.1.0). `infra/chroot_env.py` now runs commands under proot with host /proc, /dev, /sys bound, so /dev/fd, /dev/stdin and process substitution work as in Docker. Remaining deviations: no CPU/memory limits, no network isolation, host /proc visible.
+
+## 2026-11-14 17:51 UTC — Sudoku levels from paper.yaml only
+Sudoku has no 24x rung. Use the available paper.yaml levels nearest the plan: t8 (0.53), t30 (1.67), t60 (3.23), t150 (8.01). KV: R260 (0.46), R1000 (1.57), R4000 (6.04), R16000 (23.93).
+
+## 2026-11-14 17:51 UTC — runs/ gitignored
+Trial outputs and logs under `runs/` stay local (user request).
+
+## 2026-11-14 17:51 UTC — BCP smoke test before M2/M3
+User asked to smoke-test BrowseComp-Plus with 4B before running M2/M3.
+
+## 2026-11-14 17:57 UTC — HF cache and derived data on the local disk
+`/workspace` is a quota-limited persistent volume (writes failed at ~54 GB). HF cache moved to `/root/hf_cache` (27 GB: Qwen3.5-4B, Qwen3.5-9B), with a symlink at `/workspace/.cache/huggingface` so the RunPod `HF_HOME` still resolves; serve scripts set `HF_HOME=/root/hf_cache`. BCP index and doc store go to `/root/bcp_index`. The local disk is container storage: it does not survive pod re-creation, so weights and the index must be re-downloaded or rebuilt then (user request).
