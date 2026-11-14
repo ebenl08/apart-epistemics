@@ -66,3 +66,12 @@ User asked to smoke-test BrowseComp-Plus with 4B before running M2/M3.
 
 ## 2026-11-14 17:57 UTC — HF cache and derived data on the local disk
 `/workspace` is a quota-limited persistent volume (writes failed at ~54 GB). HF cache moved to `/root/hf_cache` (27 GB: Qwen3.5-4B, Qwen3.5-9B), with a symlink at `/workspace/.cache/huggingface` so the RunPod `HF_HOME` still resolves; serve scripts set `HF_HOME=/root/hf_cache`. BCP index and doc store go to `/root/bcp_index`. The local disk is container storage: it does not survive pod re-creation, so weights and the index must be re-downloaded or rebuilt then (user request).
+
+## 2026-11-14 18:24 UTC — Sprint scope: BCP smoke + KV only, no judge
+User: run the BCP smoke (5 q) and M2 KV concurrently; drop Sudoku (M3) this sprint because the in-place sketchpad dropped the first move in M1; skip the BCP LLM judge for now (provisional substring grader; answers kept for later judging). M2 uses `skill=clm` with `PAPER_KWARGS` as-is (`CB_SETTINGS=paper` in `infra/run_cb_trial.sh`): 32768 / 2048, no step cap, since 240 steps would cut R16000 (184 ops). GPU/CPU logged by `infra/util_log.sh`.
+
+## 2026-11-14 18:52 UTC — Skip Sudoku (M3) this sprint
+User rule: skip Sudoku if it stays problematic. Smoke (4B + clm, t8, paper settings): seed 42 scored 0/8 again (final board 255/256 cells, `reward_final_cell` 0.996), the same single dropped move as M1; seed 43 scored 8/8. The slip reproduces on seed 42 (2/2 runs), and exact-match versioned grading turns one slip into 0, so higher levels would mostly measure where the first slip lands. No full Sudoku run; tasks stay in `data/cb_tasks` for later. LogTriage and Needle added instead (packaged, seeds 42/43).
+
+## 2026-11-14 18:52 UTC — Sandbox roots made unique per trial
+`infra/chroot_env.py` named the trial root `<task>__env`, so two concurrent trials of the same task (skill none vs clm) shared and deleted one root (StreamIdentityError in 7 smoke trials, all rerun). Root now gets a random 8-hex suffix.
