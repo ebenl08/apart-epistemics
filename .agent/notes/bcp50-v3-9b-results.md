@@ -55,4 +55,4 @@ Our 9B: 24–26%. Close, but not the same condition.
 ## Caveats
 
 - Our method text is a deviation from the paper; substring grading plus a hand check, no judge.
-- One run per question; the 20–26% values have wide intervals (Wilson 95% for 13/50: ~16–39%).
+- One run per question; the 20–26% values have wide intervals (Wilson 95% for 13/50: ~16–40%).
