@@ -28,7 +28,7 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [x] ~~A5 full 4B + clm Sudoku~~ skipped (A2)
 - [x] A6 BCP variant smoke: v1 (as configured) 0/5, v2 (method in system prompt) 1/5,
       v3 (method in instruction) 2/5 correct → bar (≥ 2/5 answered) met → [bcp-smoke-results.md](bcp-smoke-results.md)
-- [ ] A7 BCP 50 questions with v3, 8 at a time (started 19:02) → `bcp50-v3-results.md`, commit
+- [x] A7 BCP 50 questions with v3: **10/50 correct** (9/19 when the model edited, 1/31 when not) → [bcp50-v3-results.md](bcp50-v3-results.md) (committed)
 
 ## Phase B: swap to 9B (after all 4B trials finish)
 - [ ] B1 stop the 4B server, start `infra/serve_qwen35_9b.sh`
@@ -40,3 +40,4 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [ ] Disk: `/` free > 5 GB, `/workspace` < 45 GB (quota ~54 GB). Never delete weights or caches.
 - [ ] Commit only notes, plots and infra scripts (`runs/`, `data/` are gitignored)
 - [ ] Update the handoff file at the end
+- [ ] When everything is done: `git push origin reimplementation-m1` (user request, 19:30 UTC)
