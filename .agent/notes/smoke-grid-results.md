@@ -1,10 +1,10 @@
 # Smoke grid: model × skill on all four ContextBench families
 
-Date: 2026-11-14. 4B part: 18:46–19:22 UTC (done). 9B part: pending (Phase B).
-Raw trials: `runs/smoke-4b-{none,clm}/trials/` (gitignored).
+Date: 2026-11-14. 4B part: 18:46–19:22 UTC. 9B part: 19:54–20:15 UTC. Status: **done**.
+Raw trials: `runs/smoke-{4b,9b}-{none,clm}/trials/` (gitignored).
+Per-trial table (both models): [`figs/smoke-grid.md`](figs/smoke-grid.md).
 
-![4B smoke grid](figs/smoke-grid-4b.png)
-Per-trial table: [`figs/smoke-grid-4b.md`](figs/smoke-grid-4b.md). Plot: [`figs/smoke-grid-4b.png`](figs/smoke-grid-4b.png).
+![Smoke grid, 4B and 9B](figs/smoke-grid.png)
 
 ## Setup (control unless marked)
 
@@ -43,6 +43,23 @@ Per-trial table: [`figs/smoke-grid-4b.md`](figs/smoke-grid-4b.md). Plot: [`figs/
 4. Consequence: at higher pressure only the skill can work (nothing fits), so the full
    runs use `skill=clm`; Needle's score there measures recipe fidelity more than memory.
 
-## Results: Qwen3.5-9B
+## Results: Qwen3.5-9B (Sudoku not run: skipped this sprint)
 
-Pending (Phase B: after all 4B trials finish, swap the server to 9B).
+| Family | skill=none | skill=clm | none: how it ended | clm: edits |
+|---|---|---|---|---|
+| KV R260 | 0.708 (17/24) | **1.000** | budget wall at op 21/27 | 3 |
+| LogTriage L320 | 0.083 | **1.000** | budget wall at op 27/47 | 23 |
+| Needle K4-C4 | **1.000** | **1.000** | budget wall after the last chunk (all needles kept) | 4 |
+
+## 4B vs 9B
+
+1. **With the skill, the 9B is perfect on all three families**; the 4B is near-perfect on KV /
+   LogTriage but garbles the Needle recipe (0.25). The 9B copied the Needle recipe
+   correctly (header anchor kept), which is exactly the 4B's failure point.
+2. **Without the skill, the 9B lasts longer but still hits the wall** on KV (op 21 vs 4B's 7)
+   and LogTriage (op 27 vs 17). It made 0–1 edits: neither model manages context unaided.
+   9B KV `none` scored 0 in M1 (App. F settings, 32000 / 4096); here 0.71 with paper settings
+   (32768 / 2048), so the extra ~2.5k tokens of headroom matter at this level.
+3. **So the skill, not the model size, is what makes CLM work**, and the 9B's advantage is
+   recipe fidelity on the harder recipe. Full 9B + clm runs on all three families are under
+   way to see whether that holds under pressure.

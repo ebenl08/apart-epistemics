@@ -31,9 +31,9 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [x] A7 BCP 50 questions with v3: **10/50 correct** (9/19 when the model edited, 1/31 when not) → [bcp50-v3-results.md](bcp50-v3-results.md) (committed)
 
 ## Phase B: swap to 9B (after all 4B trials finish)
-- [ ] B1 stop the 4B server, start `infra/serve_qwen35_9b.sh`
-- [ ] B2 smoke 9B (seed 42, lowest level) × {none, clm} × 4 families → add to `smoke-grid-results.md`, commit
-- [ ] B3 if time: full 9B + clm on whichever families work (KV first) → notes, plot, commit
+- [x] B1 4B server stopped, 9B up 19:53 UTC
+- [x] B2 smoke 9B: clm 1.0 on KV / LogTriage / Needle; none 0.71 / 0.08 / 1.0 → [smoke-grid-results.md](smoke-grid-results.md) (committed)
+- [ ] B3 full 9B + clm: KV (8, since 19:54), LogTriage + Needle (16, since 20:08; 9B clm smoke was 1.0 on all three) → notes, plot, commit
 
 ## Throughout
 - [ ] GPU/CPU log `runs/logs/util-*.csv`; add a utilization summary to every write-up
