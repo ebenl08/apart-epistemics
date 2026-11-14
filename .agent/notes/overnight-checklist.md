@@ -34,7 +34,15 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [x] B1 4B server stopped, 9B up 19:53 UTC
 - [x] B2 smoke 9B: clm 1.0 on KV / LogTriage / Needle; none 0.71 / 0.08 / 1.0 → [smoke-grid-results.md](smoke-grid-results.md) (committed)
 - [x] B3a KV 9B + clm: mean 0.53 vs 4B 0.98; budget wall in 5/6 trials above 0.5x (residue build-up) → [m2-kv-9b-results.md](m2-kv-9b-results.md) (committed)
-- [ ] B3b LogTriage + Needle 9B + clm (16, since 20:08) → notes, plot, commit
+- [x] B3b Needle 9B + clm: mean 0.72 vs 4B 0.51; 9B keeps every needle until the wall → [m2c-needle-9b-results.md](m2c-needle-9b-results.md) (committed)
+- [ ] B3c LogTriage 9B + clm (7/8 done; L12800 s43 running)
+- [ ] B4 extra seeds 44/45, KV R1000 / R4000 / R16000, 9B + clm (6, since 20:34): is 9B < 4B on KV robust?
+
+- [ ] B5 BCP 50 q with v3 on 9B (since 21:04; GPU was idle): 4B vs 9B on BCP, same setup
+
+## Phase C: back to 4B (after all 9B trials finish)
+- [ ] C1 swap server back to 4B
+- [ ] C2 same extra seeds 44/45 KV for 4B + clm (6) → update m2-kv-9b-results.md with 4 seeds per level, plot, commit
 
 ## Throughout
 - [ ] GPU/CPU log `runs/logs/util-*.csv`; add a utilization summary to every write-up
