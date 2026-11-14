@@ -1,4 +1,4 @@
-# M2 KV Store, Qwen3.5-4B + skill=clm (paper settings)
+# M2 KV Store, Qwen3.5-4B + skill=clm (paper settings; line = seed mean)
 
 | family | model | skill | task | pressure | seed | reward | ops | edits | LM calls | peak ctx | min | end |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|

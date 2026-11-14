@@ -142,16 +142,18 @@ def main():
     colors = {}
     palette = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2"]
     for ax, fam in zip(axes[0], fams):
+        # group seeds of one level (their pressures differ slightly) at the mean pressure
         arms = defaultdict(lambda: defaultdict(list))
         for r in done:
             if r["family"] == fam:
-                arms[f"{r['model']} / {r['skill']}"][r["pressure"]].append(r["reward"])
-        for arm, pts in sorted(arms.items()):
+                level = re.sub(r"-seed\d+$", "", r["task"])
+                arms[f"{r['model']} / {r['skill']}"][level].append((r["pressure"], r["reward"]))
+        for arm, lv in sorted(arms.items()):
             c = colors.setdefault(arm, palette[len(colors) % len(palette)])
-            xs = sorted(pts)
-            ax.plot(xs, [sum(pts[x]) / len(pts[x]) for x in xs], "-o", color=c, label=arm, ms=5)
-            for x in xs:
-                ax.scatter([x] * len(pts[x]), pts[x], color=c, alpha=0.35, s=14)
+            pts = sorted((sum(p for p, _ in v) / len(v), [y for _, y in v]) for v in lv.values())
+            ax.plot([x for x, _ in pts], [sum(ys) / len(ys) for _, ys in pts], "-o", color=c, label=arm, ms=5)
+            for x, ys in pts:
+                ax.scatter([x] * len(ys), ys, color=c, alpha=0.35, s=14)
         ax.axvline(1.0, color="#999", lw=0.8, ls="--")
         ax.set_xscale("log"); ax.set_ylim(-0.05, 1.05)
         ax.set_title(fam); ax.set_xlabel("pressure (input / budget)")

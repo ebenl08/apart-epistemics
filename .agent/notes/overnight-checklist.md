@@ -24,7 +24,7 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
       plus Sudoku t8 seed 43 + clm → [smoke-grid-results.md](smoke-grid-results.md) (committed)
 - [x] A2 Sudoku: seed 42 dropped one move again (0/8, 255/256 cells), seed 43 8/8 → **skipped**, logged in decisions.md
 - [ ] A3 (2/8 done) full 4B + clm: LogTriage 4 levels × 2 seeds (8) → `m2b-logtriage-results.md`, plot, commit
-- [ ] A4 (5/8 done) full 4B + clm: Needle 4 levels × 2 seeds (8) → `m2c-needle-results.md`, plot, commit
+- [x] A4 Needle 4B + clm: mean 0.51 (1.0 at 0.5x; 0.03–0.85 above, decided by which anchor the 4B copies) → [m2c-needle-results.md](m2c-needle-results.md) (committed)
 - [x] ~~A5 full 4B + clm Sudoku~~ skipped (A2)
 - [x] A6 BCP variant smoke: v1 (as configured) 0/5, v2 (method in system prompt) 1/5,
       v3 (method in instruction) 2/5 correct → bar (≥ 2/5 answered) met → [bcp-smoke-results.md](bcp-smoke-results.md)
