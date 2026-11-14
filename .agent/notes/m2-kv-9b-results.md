@@ -1,7 +1,8 @@
 # M2 (9B): ContextBench KV Store, Qwen3.5-9B + skill=clm, vs 4B
 
-Date: 2026-11-14, 19:54–20:35 UTC. Status: **done** (8/8 trials).
-Raw trials: `runs/m2-kv-9b-clm/trials/` (gitignored). Per-trial table (both models):
+Date: 2026-11-14, 19:54–20:35 UTC; extra seeds 44/45 (both models, R1000+) 20:34–22:49 UTC.
+Status: **done** (8 + 6 trials per model).
+Raw trials: `runs/m2-kv-9b-clm/trials/`, `runs/m2-kv-{9b-,}clm-s4445/trials/` (gitignored). Per-trial table (both models):
 [`figs/m2-kv-4b-vs-9b.md`](figs/m2-kv-4b-vs-9b.md). 4B run: [`m2-kv-results.md`](m2-kv-results.md).
 Ran concurrently with the 9B smoke grid and the 9B LogTriage / Needle runs.
 
@@ -22,12 +23,25 @@ nudges, T=0.7; levels R260 / R1000 / R4000 / R16000; seeds 42 / 43; proot), exce
 | R4000 | 6.04x | **1.000** | 0.250 | 1.000 | 1.000 | submit / wall op 47/64 |
 | R16000 | 23.9x | 0.000 | 0.000 | 1.000 | 1.000 | wall op 32/184 / wall op 43/184 |
 
-9B: 3/8 trials perfect, mean 0.53. 4B: 7/8 perfect, mean 0.98.
+Seeds 42/43 only: 9B 3/8 trials perfect, mean 0.53; 4B 7/8 perfect, mean 0.98.
+
+### With extra seeds 44 / 45 (R1000 / R4000 / R16000, both models)
+
+| Level | 4B s42 / s43 / s44 / s45 | 4B mean | 9B s42 / s43 / s44 / s45 | 9B mean |
+|---|---|---|---|---|
+| R1000 | 1 / 1 / 1 / 1 | **1.00** | 0.63 / 0.33 / 1 / 1 | 0.74 |
+| R4000 | 1 / 1 / **0 / 0** | 0.50 | 1 / 0.25 / 1 / 0 | 0.56 |
+| R16000 | 1 / 1 / 1 / 1 | **1.00** | 0 / 0 / 0 / 0 | **0.00** |
+
+The 4B's R4000 seeds 44 / 45 both hit the budget wall (ops 34, 38 of 64): the same failure
+as the 9B's. Seed 45's messages in context climbed steadily (60 → 78, the `prev` cut stopped
+working); seed 44 carried ~18.8k from early on and then one batch was not offloaded.
 
 ## Analysis
 
-1. **The 9B is worse than the 4B at KV under pressure.** Above 0.5x it hit the budget wall
-   in 5 of 6 trials; the 4B never did. Every answer the 9B gave was right except one
+1. **The 9B is worse than the 4B at KV, but not uniformly.** With 4 seeds: R16000 4/4 vs
+   0/4 and R1000 4/4 vs 2/4 favour the 4B; at R4000 they tie (2/4 each). Above 0.5x the 9B
+   hit the budget wall in 8 of 12 trials, the 4B in 2 of 12. Every answer the 9B gave was right except one
    (101 of 102 answered GETs correct), so retrieval from disk works; it runs out of context first.
 2. **The failure is residue build-up, at no fixed point.** The 9B offloads batches (edits ≈
    batches delivered) but does not keep the recipe's `prev` cut, so its own commands and
@@ -41,8 +55,10 @@ nudges, T=0.7; levels R260 / R1000 / R4000 / R16000; seeds 42 / 43; proot), exce
    KV R260, but over long streams it drifts away from the KV recipe that the 4B executes
    mechanically. Bigger is not uniformly better at CLM here: reliability over many repeated
    edits and fidelity to an intricate recipe look like different skills.
-4. **Caution: n = 2 per level**, and 9B variance is high (R4000: 1.0 vs 0.25). The 4B / 9B
-   gap at R16000 (1.0 vs 0.0 on both seeds) is the clearest single result.
+4. **Both models share the failure mode; the 9B shows it more often.** Residue build-up
+   (the recipe's `prev` cut stops being applied) ended 2 of 12 4B trials and 8 of 12 9B trials
+   above 0.5x. The R16000 gap (4/4 vs 0/4) is the clearest single result; R4000 shows that
+   2 seeds were not enough to call the 4B "solved" (first two seeds 1.0, next two 0.0).
 
 ## Utilization
 

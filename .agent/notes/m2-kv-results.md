@@ -31,9 +31,13 @@ Ran concurrently with the BCP smoke test on the same vLLM server.
 
 Overall 189/192 GETs correct (0.984); the 3 misses are all in R260 seed 42.
 
+> **Update 22:50 UTC (extra seeds 44 / 45):** R1000 and R16000 stay 1.0 on all 4 seeds, but
+> **R4000 seeds 44 and 45 both scored 0** (budget wall from residue build-up). Point 1 below
+> holds for seeds 42 / 43 only; 4-seed table and analysis in [`m2-kv-9b-results.md`](m2-kv-9b-results.md).
+
 ## Analysis
 
-1. **4B + clm solves KV at every pressure level.** 7 of 8 trials score 24/24, including
+1. **4B + clm solves KV at every pressure level (seeds 42 / 43).** 7 of 8 trials score 24/24, including
    both 24x trials (16,000 records, ~775k value tokens through a 32k window). This
    matches the paper's 27B CLM result at R1000 and holds out to 24x.
 2. **Exactly one offload per batch, every time.** Edits = number of SET batches at

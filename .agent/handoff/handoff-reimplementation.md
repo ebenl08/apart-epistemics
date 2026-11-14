@@ -1,6 +1,6 @@
 # Handoff (temporary): CLM reimplementation, overnight runs (M2 KV/LogTriage/Needle, BCP)
 
-Session: reimplementation. Updated: 2026-11-14 21:40 UTC (overnight, user asleep).
+Session: reimplementation. Updated: 2026-11-14 22:55 UTC (overnight runs finished, pushed).
 Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md).
 Decisions: [`../decisions.md`](../decisions.md). Overnight checklist (live status):
 [`../notes/overnight-checklist.md`](../notes/overnight-checklist.md).
@@ -16,34 +16,37 @@ Results (all in `.agent/notes/`, each with a plot in `figs/`, all committed):
 | Run | Note | Headline |
 |---|---|---|
 | Smoke grid 4B + 9B × none/clm | [`smoke-grid-results.md`](../notes/smoke-grid-results.md) | no-skill hits the wall on KV/LogTriage at 0.5x; 9B+clm 1.0 on all three |
-| KV 4B + clm | [`m2-kv-results.md`](../notes/m2-kv-results.md) | 189/192, 1.0 up to 24x |
-| KV 9B + clm (+ seeds 44/45) | [`m2-kv-9b-results.md`](../notes/m2-kv-9b-results.md) | mean 0.53, 0 at 24x on 4/4 seeds (residue build-up) |
+| KV 4B + clm | [`m2-kv-results.md`](../notes/m2-kv-results.md) | seeds 42/43: 189/192, 1.0 up to 24x; seeds 44/45: R4000 0/0 (residue wall) |
+| KV 4B vs 9B, 4 seeds at R1000+ | [`m2-kv-9b-results.md`](../notes/m2-kv-9b-results.md) | R1000 1.00 vs 0.74, R4000 0.50 vs 0.56, R16000 1.00 vs 0.00; budget wall 2/12 vs 8/12 |
 | LogTriage 4B / 9B + clm | [`m2b-logtriage-results.md`](../notes/m2b-logtriage-results.md), [`m2b-logtriage-9b-results.md`](../notes/m2b-logtriage-9b-results.md) | 4B 0.87, 9B 0.31 |
 | Needle 4B / 9B + clm | [`m2c-needle-results.md`](../notes/m2c-needle-results.md), [`m2c-needle-9b-results.md`](../notes/m2c-needle-9b-results.md) | 4B 0.51 (wrong anchor deletes needles), 9B 0.72 |
 | BCP smoke + variants | [`bcp-smoke-results.md`](../notes/bcp-smoke-results.md) | as configured 0/5; our method text in the instruction (v3) 2/5 |
 | BCP 50 q, 4B, v3 | [`bcp50-v3-results.md`](../notes/bcp50-v3-results.md) | 10/50 (9/19 when it edited, 1/31 when not) |
-| BCP 50 q, 9B, v3 | `bcp50-v3-9b-results.md` (pending) | running at handoff |
+| BCP 50 q, 9B, v3 | [`bcp50-v3-9b-results.md`](../notes/bcp50-v3-9b-results.md) | 12/50 strict, 13 after hand check; edits in 70% of trials |
 
 Key finding: **4B and 9B have complementary CLM failures.** The 4B executes literal recipes
-(KV, LogTriage) for hundreds of turns but garbles intricate ones (Needle anchor, Sudoku
-in-place edit). The 9B copies intricate recipes correctly but improvises on long literal
-ones (dumps, mirror greps, chat-text answers, residue) and hits the budget wall.
+(KV, LogTriage) for hundreds of turns more often than not, but garbles intricate ones (Needle
+anchor, Sudoku in-place edit). The 9B copies intricate recipes correctly but improvises on
+long literal ones (dumps, mirror greps, chat-text answers) and lets residue build up until the
+budget wall. Residue build-up hits both models (KV above 0.5x: 4B 2/12, 9B 8/12), and 2 seeds
+were not enough to see that for the 4B. On BCP the 9B is slightly ahead (13 vs 10 / 50).
 
 Decisions tonight (logged): Sudoku skipped (seed-42 slip reproduced); no BCP judge
 (substring grader, all 10 4B "correct" hand-checked as exact gold matches); `CB_SETTINGS=paper`
 for every ContextBench run; BCP v3 method text is our deviation from the paper.
 
-## Next steps (in order; also in the checklist)
+## Next steps
 
-1. When the 9B BCP run ends (`runs/logs/queue-bcp50-v3-9b.log` has `QUEUE DONE`):
-   `python infra/bcp/report.py --out .agent/notes/figs/bcp50-v3-9b --title ... runs/bcp50-v3-9b`,
-   write `bcp50-v3-9b-results.md` (compare with the 4B run), commit.
-2. Swap to 4B (kill the vLLM python pid; see gotchas), run C2: KV R1000/R4000/R16000 ×
-   seeds 44/45 with 4B + clm (`runs/queues/` pattern, `infra/run_queue.sh`), then update
-   `m2-kv-9b-results.md` with 4 seeds per level for both models, commit.
-3. `git push origin reimplementation-m1` (user asked to push once done).
-4. Open questions for the user: run the BCP judge (needs 27B + ~20 GB disk)? Full 4B/9B
-   no-skill ladders (cheap, mostly 0)? More seeds for Needle / LogTriage?
+All overnight items are done, committed and pushed (`reimplementation-m1`). Open questions
+for the user:
+1. Run the BCP judge (Qwen3.5-27B-GPTQ-Int4; needs a GPU swap and ~20 GB on `/`, which has
+   ~9 GB free: freeing the 9B weights or the uv cache needs the user's OK)? It would mainly
+   settle near-misses like 9B 1252 (equivalent date) and 987 (possible alias).
+2. More seeds: the 4B R4000 seeds 44/45 failures show n=2 is too small; LogTriage / Needle
+   4B-vs-9B gaps also rest on 2 seeds.
+3. The residue failure (the `prev` cut stops being applied) is the common failure across
+   models and families; a natural target for the elicitation / interp experiments.
+4. Full no-skill ladders (cheap, expected ~0 above 0.5x) if a baseline curve is wanted.
 
 ## Host (RunPod container)
 
@@ -58,10 +61,10 @@ for every ContextBench run; BCP v3 method text is our deviation from the paper.
 
 ## Running at handoff
 
-- vLLM **9B** on :8000 (`runs/logs/vllm-serve-9b.log`); BM25 search server on :8100
+- vLLM **4B** on :8000 (`runs/logs/vllm-serve-4b-c.log`); BM25 search server on :8100
   (`runs/logs/bcp-search.log`); `infra/util_log.sh` writing `runs/logs/util-bcp-smoke-m2.csv`
   every 30 s (GPU util, memory, power, CPU busy, load, RAM).
-- 9B BCP 50-question run (10 concurrent), `runs/bcp50-v3-9b/`.
+- No trials running.
 
 ## Tools added tonight
 
