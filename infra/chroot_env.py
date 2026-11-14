@@ -28,6 +28,7 @@ import asyncio
 import os
 import shlex
 import shutil
+import uuid
 from pathlib import Path
 
 from harbor.environments.base import BaseEnvironment, ExecResult
@@ -55,7 +56,11 @@ class ChrootEnvironment(BaseEnvironment):
     # ------------------------------------------------------------ paths
     @property
     def root(self) -> Path:
-        return ROOT_DIR / self.session_id
+        # session_id is "<task>__env", shared by concurrent trials of the same task
+        # (e.g. skill=none and skill=clm); a per-instance suffix keeps their roots apart.
+        if not hasattr(self, "_root_dir"):
+            self._root_dir = ROOT_DIR / f"{self.session_id}-{uuid.uuid4().hex[:8]}"
+        return self._root_dir
 
     def _host(self, path: str) -> Path:
         """Host path of an absolute in-chroot path."""
