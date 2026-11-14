@@ -20,8 +20,8 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 
 ## Phase A: 4B served
 - [x] A0 M2 KV done: 7/8 trials 24/24, 189/192 GETs, flat ~14k context to 24x → [m2-kv-results.md](m2-kv-results.md) (committed)
-- [ ] A1 (7/8 done, KV none running) smoke 4B (seed 42, lowest level) × {none, clm} × {KV R260, LogTriage L320, Needle K4-C4, Sudoku t8},
-      plus Sudoku t8 seed 43 + clm (is the dropped move repeatable?) → `smoke-grid-results.md`
+- [x] A1 smoke 4B (seed 42, lowest level) × {none, clm} × {KV R260, LogTriage L320, Needle K4-C4, Sudoku t8},
+      plus Sudoku t8 seed 43 + clm → [smoke-grid-results.md](smoke-grid-results.md) (committed)
 - [x] A2 Sudoku: seed 42 dropped one move again (0/8, 255/256 cells), seed 43 8/8 → **skipped**, logged in decisions.md
 - [ ] A3 (2/8 done) full 4B + clm: LogTriage 4 levels × 2 seeds (8) → `m2b-logtriage-results.md`, plot, commit
 - [ ] A4 (5/8 done) full 4B + clm: Needle 4 levels × 2 seeds (8) → `m2c-needle-results.md`, plot, commit

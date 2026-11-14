@@ -83,6 +83,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--title", default="ContextBench")
+    ap.add_argument("--bars", action="store_true",
+                    help="grouped bars per family (mean over trials) instead of reward vs pressure")
     ap.add_argument("runs", nargs="+")
     a = ap.parse_args()
     rows = []
@@ -112,6 +114,29 @@ def main():
     fams = [f for f in FAMILIES if any(r["family"] == f for r in done)]
     if not fams:
         print(f"wrote {a.out}.md (no finished trials to plot)")
+        return
+    if a.bars:
+        arms = sorted({f"{r['model']} / {r['skill']}" for r in done})
+        palette = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2"]
+        fig, ax = plt.subplots(figsize=(max(1.8 * len(fams) * max(len(arms), 2) / 2, 6.5), 3.8))
+        w = 0.8 / len(arms)
+        for ai, arm in enumerate(arms):
+            for fi, fam in enumerate(fams):
+                vals = [r["reward"] for r in done if r["family"] == fam
+                        and f"{r['model']} / {r['skill']}" == arm]
+                if not vals:
+                    continue
+                x = fi + (ai - (len(arms) - 1) / 2) * w
+                ax.bar(x, sum(vals) / len(vals), w * 0.9, color=palette[ai % len(palette)],
+                       label=arm if fi == 0 or arm not in ax.get_legend_handles_labels()[1] else None)
+                ax.scatter([x] * len(vals), vals, color="black", s=10, zorder=3)
+        ax.set_xticks(range(len(fams))); ax.set_xticklabels(fams)
+        ax.set_ylim(0, 1.05); ax.set_ylabel("reward"); ax.grid(axis="y", alpha=0.3)
+        ax.legend(frameon=False, fontsize=8, ncol=len(arms), loc="upper center", bbox_to_anchor=(0.5, -0.1))
+        ax.set_title(a.title, fontsize=10)
+        fig.tight_layout()
+        fig.savefig(a.out + ".png", dpi=130)
+        print(f"wrote {a.out}.md and {a.out}.png ({len(done)} finished / {len(rows)} trials)")
         return
     fig, axes = plt.subplots(1, len(fams), figsize=(max(4.2 * len(fams), 6.5), 3.8), squeeze=False)
     colors = {}
