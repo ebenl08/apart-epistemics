@@ -19,16 +19,16 @@ Needle K4-C4 / K4-C24 / K8-C60 / K2-C192 · Sudoku t8 / t30 / t60 / t150.
 - [x] LogTriage + Needle tasks packaged (seeds 42/43, all levels) into `data/cb_tasks/`
 
 ## Phase A: 4B served
-- [x] A0 M2 KV done: 7/8 trials 24/24, 189/192 GETs, flat ~14k context to 24x → m2-kv-results.md
-- [ ] A1 smoke 4B (seed 42, lowest level) × {none, clm} × {KV R260, LogTriage L320, Needle K4-C4, Sudoku t8},
+- [x] A0 M2 KV done: 7/8 trials 24/24, 189/192 GETs, flat ~14k context to 24x → [m2-kv-results.md](m2-kv-results.md) (committed)
+- [ ] A1 (7/8 done, KV none running) smoke 4B (seed 42, lowest level) × {none, clm} × {KV R260, LogTriage L320, Needle K4-C4, Sudoku t8},
       plus Sudoku t8 seed 43 + clm (is the dropped move repeatable?) → `smoke-grid-results.md`
 - [x] A2 Sudoku: seed 42 dropped one move again (0/8, 255/256 cells), seed 43 8/8 → **skipped**, logged in decisions.md
-- [ ] A3 full 4B + clm: LogTriage 4 levels × 2 seeds (8) → `m2b-logtriage-results.md`, plot, commit
-- [ ] A4 full 4B + clm: Needle 4 levels × 2 seeds (8) → `m2c-needle-results.md`, plot, commit
-- [ ] A5 (only if A2 is OK) full 4B + clm Sudoku 4 levels × 2 seeds
-- [x] A6 BCP variant smoke (v1 0/5, v2 1/5, v3 2/5 correct) → 50-q run with v3 started 19:02: same 5 questions + our BCP method text (offload search results to
-      notes, write a provisional answer early). Our addition, labeled as a deviation.
-      ≥ 2/5 answered → run the 50-question sample with it; otherwise stop BCP.
+- [ ] A3 (2/8 done) full 4B + clm: LogTriage 4 levels × 2 seeds (8) → `m2b-logtriage-results.md`, plot, commit
+- [ ] A4 (5/8 done) full 4B + clm: Needle 4 levels × 2 seeds (8) → `m2c-needle-results.md`, plot, commit
+- [x] ~~A5 full 4B + clm Sudoku~~ skipped (A2)
+- [x] A6 BCP variant smoke: v1 (as configured) 0/5, v2 (method in system prompt) 1/5,
+      v3 (method in instruction) 2/5 correct → bar (≥ 2/5 answered) met → [bcp-smoke-results.md](bcp-smoke-results.md)
+- [ ] A7 BCP 50 questions with v3, 8 at a time (started 19:02) → `bcp50-v3-results.md`, commit
 
 ## Phase B: swap to 9B (after all 4B trials finish)
 - [ ] B1 stop the 4B server, start `infra/serve_qwen35_9b.sh`
