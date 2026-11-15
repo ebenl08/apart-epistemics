@@ -9,7 +9,7 @@ Decisions: [`../decisions.md`](../decisions.md). Overnight checklist (live statu
 
 1. Read this file, then [`../notes/overnight-checklist.md`](../notes/overnight-checklist.md) (all ticked)
    and the result notes linked below.
-2. Nothing is running except the servers listed under "Running at handoff". The GPU is idle.
+2. No trials are running; servers and pod state are in `server-handoff.md` (local only).
 3. Before launching anything, get the user's answers to the open questions in "Next steps"
    (judge, more seeds, elicitation target). The judge needs disk, and freeing it means deleting
    things, so it needs the user's OK.
@@ -58,27 +58,12 @@ for the user:
    models and families; a natural target for the elicitation / interp experiments.
 4. Full no-skill ladders (cheap, expected ~0 above 0.5x) if a baseline curve is wanted.
 
-## Host (RunPod container)
+## Host and running processes
 
-- 1x A40 46 GB, 96 cores, 503 GB RAM. No Docker, no CAP_SYS_ADMIN.
-- `/workspace` = persistent quota-limited volume (~28 GB used of ~54). `/` = container disk,
-  50 GB, ~9 GB free during runs (each live trial sandbox is ~124 MB in `/root/chroots/`,
-  removed when the trial ends), lost if the pod is re-created.
-- Large things on `/`: venvs `/root/envs/{vllm-env,clm-env}` (clm-env now also has
-  matplotlib), HF cache `/root/hf_cache` (4B + 9B), rootfs `/root/rootfs/py312slim`,
-  BCP index `/root/bcp_index/`. Rebuild recipe if the pod is re-created: see git history
-  of this file (e4a2438).
-
-## Running at handoff
-
-Checked 01:33 UTC:
-- vLLM **4B** (`qwen35-4b`) on :8000 (`runs/logs/vllm-serve-4b-c.log`), idle (GPU 0%, 41 GB
-  pre-allocated). Swap to 9B: kill by pid (see Gotchas), then serve 9B as in the git history.
-- BM25 search server on :8100 (`runs/logs/bcp-search.log`; `/` returns 404, that is normal).
-- `infra/util_log.sh` (pid 12954) still writing `runs/logs/util-bcp-smoke-m2.csv` every 30 s;
-  safe to stop (`kill 12954`) or keep for the next runs.
-- No trials running, no sandboxes left in `/root/chroots/`. Disk: `/` 11 GB free,
-  `/workspace` 30 GB used. Git: `reimplementation-m1` clean and in sync with origin.
+Pod-specific facts (paths, caches, disk, running servers, model swap, rebuild steps) are in
+`server-handoff.md` next to this file. It is local only (in `.git/info/exclude`) because the
+pod and its hardware may change. If it is missing, check the pod directly (`nvidia-smi`,
+`df -h`, `ps`) and the git history of this file (e4a2438) for the rebuild recipe.
 
 ## Tools added tonight
 
