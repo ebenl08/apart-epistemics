@@ -130,9 +130,9 @@ Per turn (`clm_harness/context_env/env.py:ContextEnv.step`):
 ## Part 1. Collecting semantic entropy, step by step
 
 Code: two files.
-- `infra/se/entropy.py`: pure functions (no I/O): `outcome_key`, `label_blocks`,
+- `infra/semantic_entropy/entropy.py`: pure functions (no I/O): `outcome_key`, `label_blocks`,
   `cluster`, `se_bits`, `se_weighted_bits`. `__main__` = assert self-check.
-- `infra/se/collect.py`: three passes per trial (`replay`, `sample`, `execute`), selected
+- `infra/semantic_entropy/collect.py`: three passes per trial (`replay`, `sample`, `execute`), selected
   by a subcommand. Uses the harness's own code; nothing about the harness is re-implemented.
 
 Output folder: `runs/m6-se/` (gitignored like the rest of `runs/`).
@@ -213,7 +213,8 @@ class Turn:
     cmd: str               # the bash command
     tool_content: str      # the role=tool message that follows it in the next request
     fill: float            # resp.usage.prompt_tokens / 32768
-    logged_edit: bool      # "edit applied" in tool_content
+    turn_type: str         # "context_edit_turn" if "edit applied" in tool_content,
+                           # else "context_stay_turn"
 ```
 
 Procedure:
@@ -269,10 +270,10 @@ Otherwise find the cause (time, `$RANDOM`, `ls -t` ordering, rootfs) before goin
 ### Step 5. Choose decision points
 
 From the turn list, within `k < diverged_at`:
-1. all turns with `logged_edit`;
-2. plus 20 more, 5 from each fill bin [0, .25), [.25, .5), [.5, .75), [.75, 1]
+1. all `context_edit_turn`s;
+2. plus 20 `context_stay_turn`s, 5 from each fill bin [0, .25), [.25, .5), [.5, .75), [.75, 1]
    (fewer if a bin is short), random with `seed = int(sha256(trial).hexdigest()[:8], 16)`;
-3. cap 40 (if over, keep all logged edits in the top fill bin first, then random).
+3. cap 40 (if over, keep all `context_edit_turn`s in the top fill bin first, then random).
 
 Write `runs/m6-se/<trial>.points.json` (list of k).
 
@@ -351,7 +352,7 @@ se_w = se_weighted_bits(w)
 One line per point in `runs/m6-se/<trial>.jsonl`:
 ```json
 {"trial": "...", "model": "4B", "family": "kv_store", "level": "R4000", "seed": 46,
- "reward": 1.0, "t": 5, "fill": 0.81, "logged_edit": true, "logged_key": "stay|delete|offload|C0",
+ "reward": 1.0, "t": 5, "fill": 0.81, "turn_type": "context_edit_turn", "logged_key": "stay|delete|offload|C0",
  "clusters": {"stay|delete|offload|C0": 6, "stay|delete|offload|C1": 2, "invalid": 1, "...": 1},
  "se_bits": 1.57, "se_weighted_bits": 1.61, "n_invalid": 1, "n_no_command": 0,
  "rootfs_digest": "sha256:05a994d2..."}
@@ -363,13 +364,13 @@ Needle only (open decision 1): split `edit` clusters further by the set of verba
 
 ```bash
 # Pass 1 now (CPU), one process per trial, ~12 at a time (pod has ~16 cores)
-ls runs/m5-lmlog/*.jsonl | xargs -P 12 -I{} python3 infra/se/collect.py replay {}
-python3 infra/se/collect.py points runs/m5-lmlog/*.jsonl
+ls runs/m5-lmlog/*.jsonl | xargs -P 12 -I{} python3 infra/semantic_entropy/collect.py replay {}
+python3 infra/semantic_entropy/collect.py points runs/m5-lmlog/*.jsonl
 # Pass 2 after M5 frees each GPU
-python3 infra/se/collect.py sample --api http://localhost:8000/v1 runs/m5-lmlog/*4b*.jsonl
-python3 infra/se/collect.py sample --api http://localhost:8010/v1 runs/m5-lmlog/*9b*.jsonl
+python3 infra/semantic_entropy/collect.py sample --api http://localhost:8000/v1 runs/m5-lmlog/*4b*.jsonl
+python3 infra/semantic_entropy/collect.py sample --api http://localhost:8010/v1 runs/m5-lmlog/*9b*.jsonl
 # Pass 3 (CPU)
-ls runs/m5-lmlog/*.jsonl | xargs -P 12 -I{} python3 infra/se/collect.py execute {}
+ls runs/m5-lmlog/*.jsonl | xargs -P 12 -I{} python3 infra/semantic_entropy/collect.py execute {}
 ```
 (Exact log filename patterns: check against `runs/m5-lmlog/`.)
 
@@ -400,7 +401,7 @@ fill ≥ 0.75.
    logit as a check). Report the SE coefficient and ΔR² over the model without SE.
 4. **Plots:** SE vs pressure and reward vs pressure per model × family; SE vs reward
    coloured by level.
-5. **Step level (where ground truth exists):** label each logged edit *harmful* if it
+5. **Step level (where ground truth exists):** label each `context_edit_turn` *harmful* if it
    deleted (not offloaded) or clobbered content needed later: KV = a SET whose key is later
    GET-ed and answered wrong; LogTriage = a batch not on disk when asked. AUROC of point SE
    for harmful edits.
@@ -443,7 +444,7 @@ is under-powered.
 
 **Vary / new:**
 - **K = 10 samples per decision point.**
-- **≤ 40 points per trial** (all logged edits + 20 fill-stratified).
+- **≤ 40 points per trial** (all `context_edit_turn`s + 20 fill-stratified `context_stay_turn`s).
 - **Outcome classes: stay / edit / offload / delete + clobber flag; invalid, no_command,
   context_status.**
 - **Entropy in bits** (discrete primary, likelihood-weighted secondary).
