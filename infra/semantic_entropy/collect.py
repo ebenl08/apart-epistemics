@@ -241,6 +241,9 @@ async def sample(log: Path, api: str, conc: int) -> None:
                 print(f"PROMPT MISMATCH {log.stem} t={k}: {pt} vs {want}", flush=True)
 
     await asyncio.gather(*(one(k) for k in pts))
+    have = {json.loads(x)["t"] for x in open(out)} if out.exists() else set()
+    if set(choose_points(log)) <= have:
+        (OUT / f"{log.stem}.samples.done").touch()
 
 
 # ---------------------------------------------------------------- Pass 3: execute

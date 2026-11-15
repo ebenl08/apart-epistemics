@@ -116,3 +116,16 @@ User: same KV + LogTriage evaluation on Llama-3.1-8B-Instruct and Gemma 3 4B, `c
 - Data files for clobber = everything under `/tmp` and `/app` except `/tmp/.live_ctx` and `/tmp/.bash_ctx_state` (plan: `/tmp` only; `/app` added since the task workdir is `/app`).
 - Dev trials (9B): KV R4000 s46 (wall, 0.125) / s49 (1.0); LogTriage L1600 s49 (wall, 0) / s47 (1.0).
 - **Gate A: pass.** 4/4 trials, 432/432 turns byte-identical tool results (no divergence, no note-only mismatches). Rootfs digest matches M5.
+
+## 2026-11-16 18:40 UTC — M5B launched (Gemma side) on a 1×A40 pod
+User: drop Gemma 2 9B (8k context) and the Llama base fallback; Gemma chain is 3 4B → 3 12B. Two 1×GPU pods instead of one 2×A6000 (Llama access was pending). No A6000 free in secure cloud (API: availability NONE; the regional listing said LOW); user approved A40. Pod `sim3ebk6y0yoaw` (1×A40, EU-SE-1, $0.59/h, volume hri0q37of4) runs `infra/m5b_launch.sh gemma`. Models pinned: gemma-3-4b-it @ 093f9f38, gemma-3-12b-it @ 96b6f1ec, Llama-3.1-8B-Instruct @ 0e9e39f2 (access approved 18:34 UTC; its pod is not created yet). Tool calls via vLLM `pythonic` / `llama3_json` with the v0.33.0 tool templates (`infra/chat_templates/`). OpenRouter considered as an alternative (no GPU needed; Gemma 3 4B has no tool-call provider there); not chosen yet.
+
+## 2026-11-16 18:50 UTC — M5B smoke gate failed for Gemma 3 4B and Llama 3.1 8B
+Both models answer with a fenced ```bash block (Llama: "THOUGHT: … ```bash … ```") instead of a native tool call, so vLLM's `pythonic` / `llama3_json` parsers find nothing and the harness only replies "(No tool call in your last turn…)"; both stuck at op 1. Gemma also gets 400s from its template ("Conversation roles must alternate") because the harness sends system, user, user. Smoke trials killed per the gate rule; launch scripts exited at `SMOKE_GATE_FAILED`; both pods still up (vLLM servers loaded). Awaiting user decision on a fix (fenced-bash → tool-call parser; Gemma template that merges consecutive same-role turns).
+
+## 2026-11-16 — M6 milestones 3–4 (Pass 2/3 on dev), full 9B run started
+- Pass 2: logged request body resent with `n=10, logprobs=True, seed=sha256(trial:t)`; prompt tokens equal the logged ones at every point. Sent to vLLM `:8010` directly (not through the proxy).
+- Pass 3: each sample runs through a fresh `ClmStream`'s `ContextEnv.step` on an rsync copy of the turn-t root (`/root/m6roots/work`); "written" files = mtime ≥ a `.se_marker` touched after the copy. Sampled vLLM messages get `reasoning` → `reasoning_content` before `step` (the harness format).
+- **Gate B: 160/160** on the 4 dev trials. 10/10 hand-checked labels correct. Dev SE: 57–93% of points at 0, max 1.57 bits; high-SE points mix offload-now vs answer/lookup-first vs different cut sets.
+- Full run: queue `runs/m6-se/queue-9b.txt` (42 `m5-9b` logs), `CONC=16` points per batch (dev 8; KV cache was at 4%), execute 6 in parallel. Two trials diverge in Pass 1 on `ls -la /tmp` metadata only; points after the divergence dropped per plan (not overridden).
+- New scripts: `m6_run.sh` (driver: replay → points → sample ∥ execute), `m6_status.sh` (checklist), `analyze.py` (Part 2). scipy / statsmodels / scikit-learn installed in the pod's clm-env for the analysis.
