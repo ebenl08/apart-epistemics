@@ -1,160 +1,130 @@
-# M2 + BCP results: ContextBench and BrowseComp-Plus, Qwen3.5-4B vs 9B (combined)
+# M2 BCP results: BrowseComp-Plus (deep research), Qwen3.5-4B vs 9B (combined)
 
-Date: 2026-11-14, 18:23–22:49 UTC (BCP 18:23–22:24). Status: **done**. Sudoku: smoke only, then skipped this sprint
-([`../decisions.md`](../decisions.md)).
-Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md) (M2, M4).
-This file merges the per-run notes, now in [`archive/`](archive/) (listed at the end).
-Raw trials live under `runs/` (gitignored); per-trial tables and plots are in `figs/`.
-
-## ContextBench setup (control unless marked)
-
-- Serving: vLLM 0.33.0, BF16, one A40, one model served at a time on :8000 (65k
-  max-model-len, prefix caching, 0.9 memory fraction). Many trials run concurrently on it.
-- Agent: `clm_contextbench:ClmStream`; `skill=clm` means the paper's per-family method text.
-- `CB_SETTINGS=paper`: budget 32768 / reserve 2048, no step cap, no nudges, T=0.7,
-  top_p 0.95, max_tokens 8192, thinking on. (M1 used App. F: 32000 / 4096 / 240 steps.)
-- Sandbox: proot (no Docker on this host). Timeout 28800 s per trial.
-- **Vary:** model (4B / 9B), skill (none / clm, smoke grid only), family, pressure level, seed.
-
-| Family | Levels (pressure) | Seeds | Metric |
-|---|---|---|---|
-| KV Store | R260 (0.46x) / R1000 (1.57x) / R4000 (6.04x) / R16000 (23.9x) | 42, 43; plus 44, 45 at R1000+ | exact value accuracy over 24 GETs |
-| LogTriage | L320 (0.51x) / L1600 (2.2x) / L6400 (7.9x) / L12800 (15.8x) | 42, 43 | 12 lookups + 12 counts, exact match |
-| Needle | K4-C4 (0.52x) / K4-C24 (2.96x) / K8-C60 (7.54x) / K2-C192 (23.1x) | 42, 43 | needles verbatim in context at the end |
+Date: 2026-11-14, 18:23–22:24 UTC. Status: **done**.
+Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md) (M4).
+ContextBench (M2) results: [`m2-contextbench-results.md`](m2-contextbench-results.md).
+This file holds the full content of the three BCP per-run notes (originals kept in [`archive/`](archive/), listed at the end),
+plus the per-question evaluation table from `figs/`. Raw trials live under `runs/` (gitignored).
 
 ## Headline
 
-| Family | 4B + clm | 9B + clm |
+| | 4B | 9B |
 |---|---|---|
-| KV, R1000 / R4000 / R16000 (4 seeds) | **1.00** / 0.50 / **1.00** | 0.74 / 0.56 / **0.00** |
-| LogTriage, mean of 8 trials | **0.87** | 0.31 |
-| Needle, mean of 8 trials | 0.51 | **0.72** |
+| 50 q, correct after hand check | 10 / 50 (20%) | **13 / 50** (26%) |
+| trials with ≥ 1 context edit | 19 (38%) | 35 (70%) |
+| correct when edited / not | 47% vs 3% | 31% vs 7% |
 
-**The two models fail CLM in complementary ways.** The 4B executes the literal "cut a block,
-save it to disk" recipes (KV, LogTriage) for hundreds of turns, but often copies the more
-intricate Needle recipe wrong. The 9B copies the intricate recipe correctly, but improvises on
-long literal ones and lets its own residue build up until it hits the budget wall.
-**Without the skill, neither model manages context:** both hit the wall at ~0.5x on KV and LogTriage.
-
-On **BCP** (50 questions, with our own method text), the 9B is slightly ahead: 13 vs 10 correct
+On 50 questions, with our own method text, the 9B is slightly ahead: 13 vs 10 correct
 after a hand check. In both models, trials that edited their context were far more often correct.
+Without a method text (smoke v1) the 4B answered 0/5: it never offloads search results.
 
-## 1. Smoke grid: model × skill, lowest level, seed 42
+## Setup (control unless marked)
 
-![Smoke grid](figs/smoke-grid.png)
-
-| Family | 4B none | 4B clm | 9B none | 9B clm |
-|---|---|---|---|---|
-| KV R260 | 0.125 (wall op 7/27) | **0.958** | 0.708 (wall op 21/27) | **1.000** |
-| LogTriage L320 | 0.000 (wall op 17/47) | **1.000** | 0.083 (wall op 27/47) | **1.000** |
-| Needle K4-C4 | **1.000** (fits) | 0.250 (needles deleted) | **1.000** | **1.000** |
-| Sudoku t8 | 0.875 | 0.000 (s42) / 1.000 (s43) | not run | not run |
-
-- Where the stream does not fit as delivered, the skill decides everything: without it both
-  models keep raw batches in context and hit the wall early (0–1 edits). The 9B lasts longer.
-- Where everything fits (Needle K4-C4, Sudoku t8), the skill can hurt the 4B: one slip in an
-  intricate recipe is fatal (Needle: dropped the slice that keeps the needles; Sudoku s42: lost
-  one move, 255/256 cells right, 0/8 graded). That slip reproduced, so Sudoku was skipped.
-- 9B KV `none` scored 0 in M1 (App. F settings) but 0.71 here; the ~2.5k extra tokens of
-  headroom in the paper settings matter at this level.
-
-## 2. KV Store + clm
-
-![KV 4B vs 9B](figs/m2-kv-4b-vs-9b.png)
-
-| Level | 4B s42 / s43 / s44 / s45 | 4B mean | 9B s42 / s43 / s44 / s45 | 9B mean |
-|---|---|---|---|---|
-| R260 | 0.875 / 1 / – / – | 0.94 | 1 / 1 / – / – | **1.00** |
-| R1000 | 1 / 1 / 1 / 1 | **1.00** | 0.63 / 0.33 / 1 / 1 | 0.74 |
-| R4000 | 1 / 1 / **0 / 0** | 0.50 | 1 / 0.25 / 1 / 0 | 0.56 |
-| R16000 | 1 / 1 / 1 / 1 | **1.00** | 0 / 0 / 0 / 0 | **0.00** |
-
-- **4B:** one offload edit per SET batch (3 / 10 / 40 / 160), peak context 11–15k regardless of
-  input size; 16,000 records (~775k value tokens) through a 32k window on all 4 seeds. The only
-  losses are R260 s42 (answered from context instead of `grep`, 21/24) and R4000 s44 / s45, which
-  both hit the wall (ops 34, 38 of 64) from residue build-up: s45's message count climbed
-  60 → 78; s44 carried ~18.8k from early on and then missed one batch.
-- **9B:** retrieval works (101 of 102 answered GETs correct), but it hit the wall in 8 of 12
-  trials above 0.5x (4B: 2 of 12). It offloads batches but stops applying the recipe's `prev`
-  cut, so its own commands and harness notes pile up; onset anywhere from turn 7 to 38. In
-  R16000 it died at ops 32–43, before the GETs start at op 160. R4000 s43 also grepped the
-  mirror file 10 times, which the recipe forbids.
-- The R16000 gap (4/4 vs 0/4) is the clearest single result. R4000 shows that 2 seeds were not
-  enough to call the 4B "solved".
-
-## 3. LogTriage + clm
-
-![LogTriage 4B vs 9B](figs/m2b-logtriage-4b-vs-9b.png)
-
-| Level | 4B s42 | 4B s43 | 9B s42 | 9B s43 | Failure |
-|---|---|---|---|---|---|
-| L320 | 1.000 | 1.000 | **1.000** | 0.000 | 9B s43: wall at 33/47, dumped all request ids into context |
-| L1600 | 1.000 | 1.000 | 0.000 | **1.000** | 9B s42: wall at 95/139 |
-| L6400 | 1.000 | 1.000 | 0.000 | 0.000 | 9B s42: answers written as chat text, not printed (1/24 graded); s43: wall at 54/143, grepped the mirror file |
-| L12800 | 0.000 | 0.958 | 0.000 | 0.500 | 4B s42: drift after 166 good turns, wall at 175/262; 9B s42: wall at 99/262; 9B s43: 2 of 238 batches never offloaded, so all 12 counts off by a few |
-
-- **4B (mean 0.87):** one edit per batch, context flat at 11–13k, perfect up to 8x on both seeds.
-  Its one failure was a drift, not a misunderstanding: after 166 correct turns it stopped cutting
-  its own previous turns (messages 6 → 66, tokens 6.9k → 26.5k in ~35 turns).
-- **9B (mean 0.31):** four failure modes, none of them retrieval: residue / dumping into
-  context (4 trials), answers as chat text, and a few dropped offloads (exact-match grading
-  zeroes all 12 counts while all 12 lookups are right).
-
-## 4. Needle Retention + clm
-
-![Needle 4B vs 9B](figs/m2c-needle-4b-vs-9b.png)
-
-| Level | 4B s42 | 4B s43 | 9B s42 | 9B s43 | Ops reached (4B / 9B) |
-|---|---|---|---|---|---|
-| K4-C4 | 1.000 | 1.000 | **1.000** | **1.000** | all / all |
-| K4-C24 | 0.042 | 0.167 | **0.958** | **1.000** | all / all |
-| K8-C60 | 0.500 | **0.850** | 0.567 | 0.533 | 34, 52 / 34, 32 of 60 (all wall) |
-| K2-C192 | 0.026 | 0.495 | 0.214 | **0.510** | 6, 101 / 41, 98 of 192 (all wall) |
-
-- **4B (mean 0.51): wrong anchor.** The paper's recipe anchors on the chunk header
-  (`h = '=== chunk N/'`) and keeps header + needles while cutting the filler. The 4B often
-  anchors on the filler's START or END line instead, so each edit deletes that chunk's needles.
-  Runs whose last edit kept the header score 0.85–1.0; runs that swapped it score 0.03–0.5.
-- **9B (mean 0.72): faithful recipe, then the wall.** Every 9B trial keeps every needle it has
-  seen; its score equals the fraction of the stream it got through. At K4-C24 (no wall for either
-  model) the gap is 0.98 vs 0.10.
-- **At ≥ 7.5x both hit the wall** at ~25–26k tokens, although retained needles are only ~10–12k:
-  residue again.
-
-## 5. BrowseComp-Plus (BCP), M4
-
-### Setup (control unless marked)
-
-- Agent: `ClmAgent` with `bcp.yaml` (max_steps 500, T=0.7, budget 28672 / reserve 2048, nudges
-  0.25 / 0.5 / 0.75 + persistent 0.9, finalize 3). **Changed:** `cost_metric=usd` (bcp.yaml's
-  FLOPs key is for 27B).
-- Retrieval: BM25 server on :8100, top-10, 512-token snippets, 8192-token reader (plan settings);
-  tools `search` / `get_document` reachable from proot.
+- Agent: `ClmAgent` with [`bcp.yaml`](../../context-language-models/clm/clm_harness/configs/bcp.yaml):
+  max_steps 500, T=0.7, budget 28672 / reserve 2048, nudges 0.25 / 0.5 / 0.75 + persistent 0.9,
+  finalize nudges 3.
+- **Changed vs bcp.yaml:** `cost_metric=usd` (bcp.yaml's FLOPs key is for 27B; 4B `flops_n_body` not set).
+- Model server: shared with ContextBench runs (`infra/serve_qwen35_4b.sh` for the 4B).
+- Retrieval: search skill `infra/bcp/skill/bcp_search` (BM25, top-10, 512-token snippets, 8192-token
+  reader; plan settings), server on :8100. Sandbox: proot (`infra/chroot_env.py`); :8100 reachable from proot (checked).
 - Questions: the fixed 50-question sample (`data/bcp/sample_seed0_n50.json`, seed 0); smoke used
   5 of them (624, 1204, 679, 69, 427). One run per question.
 - Grading: substring match of the gold answer in `Exact Answer:`, plus a hand check. **No LLM
-  judge** (user decision); answers are kept in `/app/answer.md` for later judging.
-- **Deviation (ours, not the paper's):** the paper's BCP runs give no method text. We added one,
-  modelled on the KV recipe: tool outputs come in id'd blocks (`<<<R0007 BEGIN … R0007 END>>>`);
-  offload each block to disk with a one-line note; keep a provisional `/app/answer.md`.
+  judge** (user decision 2026-11-14: skip the judge this sprint); answers are kept in `/app/answer.md` for later judging.
+- Instruction and SKILL.md are our own wording (deviation; paper's BCP prompt not in repo).
 
-### Smoke: where to put the method text (4B, 5 questions)
+## 1. Smoke v1: as configured (4B, 5 questions)
 
-| QID | v1: as configured | v2: method in system prompt (SKILL.md) | v3: method in task instruction |
+18:23–18:30 UTC (all 5 trials finished in 17 s to 7.4 min), concurrently with M2 KV. Raw trials: `runs/bcp-smoke/trials/`.
+
+| QID | reward (substring) | answered | steps / LM calls | edits | peak ctx | terminated |
+|---|---|---|---|---|---|---|
+| 427 | 0 | no | 1 / 1 | 0 | 2.1k | gave up: submitted on the first call without searching |
+| 624 | 0 | no | 22 LM calls, 12 kept | 0 | ~28k (budget) | budget exhausted after 6/6 rollbacks (3 min) |
+| 1204 | 0 | no | 20 LM calls, 9 kept | 0 | ~27k (budget) | budget exhausted after 6/6 rollbacks (5 min) |
+| 679 | 0 | no | 52 LM calls, 12 kept | 1 real, 1 rejected | ~29k (budget) | budget exhausted after 6/6 rollbacks (7.4 min) |
+| 69 | 0 | no | 22 LM calls, 13 kept in trajectory | 0 | 28.6k (budget) | budget exhausted after 6/6 rollbacks; ignored the final-turn notice (searched again) |
+
+Observations:
+
+- 427: the model reasoned the question was too hard and ran
+  `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT` immediately. Model behavior, not a pipeline bug.
+- Harmless proot warning in every command: host cwd absent in guest, falls back to `/`.
+- 69 hit the context limit early and rolled back (`rollback_retry`), so budget handling is active.
+- 69 (finished 18:25, 2.5 min): **no context edits at all** (`n_ctx_syncs_real 0`) despite 3 nudges.
+  Each `search` returns ~10 x 512-token snippets (~4-5k tokens), so the 28.6k budget holds
+  only ~4-5 searches. The model kept issuing ever-shorter keyword searches (`search "ugly"`,
+  `search "trolled"`), hit the limit, was rolled back 6 times, then on the FINAL-turn notice
+  searched again instead of writing `/app/answer.md`. Same pattern as M1 `skill=none`:
+  without a method text, 4B does not offload; BCP gets only the search skill.
+- 624: same failure as 69. 0 edits, 3 nudges ignored, one `get_document`, then single-word
+  searches (`search "coffee"`, `search 'Colombia'`) until 6/6 rollbacks. Ended without an answer.
+- 1204: same failure. 0 edits, 8 nudges ignored. Searches were on target (identified the
+  topic as Zelda / Ocarina of Time, was narrowing to Link's voice actor) but it never wrote
+  a provisional answer before the budget ran out. Best candidate for a fix: it was close.
+- 679: the only trial that touched its context: one Python edit of `LIVE_CTX_MAIN.txt`
+  (1 accepted, 1 rejected), then back to searching (Purdue / Murphy award / Crossley) until
+  6/6 rollbacks. 9 nudges. No answer.
+
+Summary: **0/5 answered, 0/5 correct.** The pipeline works end to end (search server reachable
+from proot, `search` / `get_document` called correctly, nudges and rollbacks fire,
+verifier writes `reward.json`). The model is the bottleneck:
+
+1. **No offloading.** 4 of 5 trials made 0 context edits; 679 made 1. Same as M1 with
+   `skill=none`: 4B does not edit context without a method text, and BCP gets only the
+   search skill. Compare KV, where `skill=clm` gives 1 edit per batch and 24/24 at R1000.
+2. **Search results flood the budget.** ~4-5k tokens per `search` (10 x 512-token snippets)
+   vs a 28.6k budget: ~5 searches before the wall. Rollbacks then loop the model.
+3. **No answer under pressure.** None wrote a provisional `/app/answer.md`, even on the
+   FINAL-turn notice (69 searched again). 427 quit at call 1.
+4. Query quality degrades into single keywords (`search "ugly"`, `search 'Colombia'`).
+   1204 was on the right track (Zelda / Ocarina of Time) when the budget ran out.
+
+Implication for M4 at the time: as configured, expect ~0%. Options considered: (a) a BCP method
+text (offload search results to a notes file, keep a running candidate answer), our addition, not
+the paper's; (b) `k=3-5` / shorter snippets, deviating from the plan's top-10 x 512; (c) instruct
+"write a provisional answer early"; (d) run as-is and report 4B as below floor. Chosen: (a)+(c), below.
+
+## 2. Smoke v2 / v3: our BCP method text (4B, same 5 questions, 18:48–19:01 UTC)
+
+Our addition, **not the paper's setup**: the paper's BCP runs give no method text. Same 5
+questions, same `bcp.yaml` settings, same substring grader.
+
+- Tools now wrap every output in `<<<R0007 BEGIN ... R0007 END>>>` (unique anchor per result).
+- Method text ([`infra/bcp/skill/bcp_search_clm/SKILL.md`](../../infra/bcp/skill/bcp_search_clm/SKILL.md)),
+  modelled on the paper's KV recipe: one `python3` heredoc per result that writes a one-line
+  note to `/app/notes.md`, moves the block to `/tmp/ctx_offload/`, replaces it with the note,
+  `&& search` next. Plus: write a provisional `/app/answer.md` as soon as there is a candidate.
+- **v2**: method text in the skill's SKILL.md (system prompt). `BCP_SKILL=bcp_search_clm`.
+- **v3**: same method text inserted into the task instruction before `## Output`, as
+  ContextBench places its method section; skill = tools only. `BCP_SKILL=bcp_search_ids
+  BCP_TASKS=bcp_tasks_v3` (built by [`infra/bcp/make_v3_tasks.py`](../../infra/bcp/make_v3_tasks.py)).
+
+| QID | v1 (as configured) | v2 (method in system prompt) | v3 (method in instruction) |
 |---|---|---|---|
-| 69 | 0, no answer, 0 edits | **1**, 4 edits | **1**, 1 edit |
-| 624 | 0, no answer, 0 edits | 0, answered wrong | **1** |
-| 427 | 0, quit at call 1 | 0, no answer | 0, no answer, 3 edits |
-| 679 | 0, no answer, 1 edit | 0, no answer | 0, quit at call 1 |
-| 1204 | 0, no answer, 0 edits | 0, no answer | 0, no answer |
+| 69 | 0, no answer, 0 edits | **1** (Chikwe), 4 edits, 36 calls | **1** (Chikwe), 1 edit, 12 calls |
+| 624 | 0, no answer, 0 edits | 0, answered wrong (conf 100%), 1 edit | **1**, answered |
+| 427 | 0, quit at call 1 | 0, no answer, 0 edits | 0, no answer, 3 edits |
+| 679 | 0, no answer, 1 edit | 0, no answer, 1 edit | 0, quit at call 1 |
+| 1204 | 0, no answer, 0 edits | 0, no answer, 0 edits | 0, no answer, 0 edits |
 | **answered / correct** | 0 / 0 | 2 / 1 | **2 / 2** |
 
-- v1 works end to end but the 4B never offloads: each `search` adds ~4–5k tokens, so the 28.6k
-  budget holds ~5 searches, then rollbacks loop until the budget is gone. Same as KV without the skill.
-- Rule set before the run (≥ 2/5 answered → run 50) chose v3, which matches where ContextBench
-  puts its method section (`BCP_SKILL=bcp_search_ids BCP_TASKS=bcp_tasks_v3`).
+- The method text moves BCP off zero, but adoption is weak: most trials still make 0–1
+  edits, far from KV's one-edit-per-batch. Successes came from batching: v3 69 offloaded
+  four result blocks in one edit, then answered from `/tmp/ctx_offload`.
+- Placement matters a little (v3 ≥ v2 here), consistent with ContextBench putting the
+  method in the instruction. n = 5, so this is a direction, not a result.
+- Remaining failure modes: quitting at call 1 (427, 679), ignoring the recipe and
+  searching until the wall (1204 in all three variants), and confident wrong answers.
+- Decision (rule set before the run: ≥ 2/5 answered → run 50): **run the 50-question
+  sample with v3**. The 5 smoke tasks were rebuilt for the 50 run; the instruction differs
+  from the smoke v3 copy by one blank line.
 
-### 50 questions, v3
+## 3. 50 questions, v3: 4B and 9B
+
+4B: 19:02–19:37 UTC (35 min, 8 concurrent, `runs/bcp50-v3/`), sharing the server with LogTriage / Needle.
+9B: 21:04–22:24 UTC (80 min, 10 concurrent, `runs/bcp50-v3-9b/`, `MODEL=qwen35-9b`), mostly alone on the
+9B server (the last 9B ContextBench trials finished during the first 20 min). Setup identical otherwise.
 
 ![BCP 4B](figs/bcp50-v3.png)
 ![BCP 9B](figs/bcp50-v3-9b.png)
@@ -165,77 +135,141 @@ after a hand check. In both models, trials that edited their context were far mo
 | correct after hand check | 10 | **13** (+ 1 possible alias) |
 | answered | 12 | 21 |
 | wrong answers | 2 | 9 |
-| no answer, budget exhausted | 33 | 29 |
+| no answer, budget exhausted (6/6 rollbacks) | 33 | 29 |
 | no answer, quit within 2 calls | 5 | 0 |
 | trials with ≥ 1 context edit | 19 (38%) | 35 (70%) |
 | correct when edited / not | 9 / 19 vs 1 / 31 | 11 / 35 vs 1 / 15 |
 | mean LM calls / minutes per question | 13.7 / 5.3 | 23.7 / 12.0 |
 | run | 19:02–19:37, 8 concurrent | 21:04–22:24, 10 concurrent |
 
-Hand check: all 10 4B "correct" are exact gold matches and its 2 wrong answers are genuinely
-wrong. Of the 9B's 9 "wrong": **1252** "2004 Athens Olympics (Aug 13-29, 2004)" vs gold "August
-13-August 29, 2004" is equivalent (counted correct); **987** "Guillem Vilella Falgueras" vs gold
-"Guille Milkyway" may be a stage name (not verifiable offline, counted wrong); the other 7 are wrong.
+4B outcome by whether the trial edited its context:
 
-Paper references (judged, paper's setup, no method text): Qwen3.5-9B 28.8%, Qwen3.6-27B 59.4%.
-Our 9B: 24–26%. Close, but not the same condition.
+| outcome | made ≥ 1 context edit (n=19) | no context edit (n=31) | total |
+|---|---|---|---|
+| correct | **9** | 1 | 10 |
+| wrong answer | 0 | 2 | 2 |
+| no answer, budget exhausted (6/6 rollbacks) | 10 | 23 | 33 |
+| no answer, quit within 2 calls | 0 | 5 | 5 |
 
-- **Editing context separates success from failure** in both models (47% vs 3% for the 4B,
-  31% vs 7% for the 9B). Correlation, not proof: easier questions may both invite edits and be solvable.
-- **The 9B adopts the method text far more** (70% of trials vs 38%) and never quits early, but
-  trades precision for coverage: ~60% of its answers are right vs 83% for the 4B. When the 4B edits,
-  it edits sparingly (1–9 edits, median 3), unlike its one edit per batch on KV.
-- **The biggest loss is running out of budget with no answer** (33 / 29 of 50), despite the
-  "keep a provisional answer" instruction, 2–11 nudges and the final-turn notice. A harness-side
-  finalize turn is the cheapest fix.
-- **Little overlap:** both models solved 5 questions (120, 505, 514, 771, 1266); 4B only 5 (581,
-  887, 978, 1155, 1204); 9B only 7 (69, 235, 428, 821, 1023, 1115, 1260). With one run per question
-  this is largely run-to-run luck (1204 failed in all 3 smoke variants, then was solved here).
-- Wide intervals: Wilson 95% ~11–33% for 10/50, ~16–40% for 13/50.
+Hand check: all 10 4B "correct" are exact gold matches (no false positives) and its 2 wrong answers
+are genuinely wrong. Of the 9B's 9 "wrong": **1252** "2004 Athens Olympics (Aug 13-29, 2004)" vs gold
+"August 13-August 29, 2004" is equivalent (substring false negative, counted correct); **987** "Guillem
+Vilella Falgueras" vs gold "Guille Milkyway" may be the same person under a stage name (not verifiable
+offline, counted wrong); the other 7 are wrong (e.g. 624: 66% vs 65%).
 
-## Cross-family analysis
+Paper references (plan; judged, paper's own setup, no method text): Qwen3.5-9B 28.8%, Qwen3.6-27B 59.4%.
+Our 4B: 20%; our 9B: 24–26%. Close for the 9B, but not the same condition (our method text, substring grader).
 
-1. **The skill, not model size, is what makes CLM work at all.** Without it both models hit the
-   wall at ~0.5x on KV and LogTriage with 0–1 edits.
-2. **Two separate abilities, split across the two models:**
-   - *Recipe fidelity* (copy an intricate edit exactly): 9B ≫ 4B (Needle, Sudoku).
-   - *Long-horizon hygiene* (keep cutting your own residue for 100+ turns): 4B > 9B on KV and
-     LogTriage; both weak on Needle at high pressure.
-3. **Residue build-up is the common failure.** The recipe's `prev` cut stops being applied and
-   the context fills from the model's own turns. It appears for both models in all three families
-   (KV above 0.5x: 4B 2/12, 9B 8/12), at no fixed point in the stream. This is the natural target
-   for the elicitation / interp experiments.
-4. **The 9B improvises around literal recipes** (dumps, mirror-file greps, chat-text answers);
-   the 4B executes them literally. That costs the 9B on long literal streams and helps it on
-   the intricate one, and on BCP, where there is no fixed recipe to follow.
+### Per-question evaluation (50 questions, both models)
 
-## Utilization and cost
+Outcome is the strict substring grade; see the hand check above for 1252 and 987.
 
-GPU ~100% throughout (8–23 concurrent trials per server, ContextBench and BCP sharing it); CPU 10–24% of 96
-cores; RAM up to 147 GB. Cost grows linearly with batches (~1.1–1.3 LM calls per op); wall times
-(5 min at R260 to ~60 min at L12800) are inflated by GPU sharing. Log: `runs/logs/util-bcp-smoke-m2.csv`.
+| QID | Gold | 4B outcome | 4B answer (conf) | 4B calls / edits / nudges / min | 9B outcome | 9B answer (conf) | 9B calls / edits / nudges / min |
+|---|---|---|---|---|---|---|---|
+| 69 | Chikwe | no answer (budget) | – | 13 / 0 / 3 / 5.4 | **correct** | Chikwe (100%) | 12 / 2 / 4 / 8.3 |
+| 100 | Phoenix New Times | no answer (budget) | – | 12 / 0 / 2 / 2.4 | no answer (budget) | – | 12 / 0 / 2 / 2.5 |
+| 120 | Why would any graduate want to start a business in Nigeria? | **correct** | Why would any graduate want to start a business in Nigeria? (100%) | 14 / 3 / 4 / 5.3 | **correct** | Why would any graduate want to start a business in Nigeria? (95%) | 18 / 1 / 4 / 5.7 |
+| 161 | Kune Rima | no answer (budget) | – | 12 / 0 / 2 / 3.5 | no answer (budget) | – | 12 / 1 / 2 / 3.2 |
+| 169 | Immaterial | no answer (quit) | – | 1 / 0 / 0 / 0.7 | no answer (budget) | – | 12 / 0 / 2 / 6.0 |
+| 171 | June 2023 | no answer (budget) | – | 13 / 0 / 3 / 3.5 | no answer (budget) | – | 12 / 0 / 2 / 3.5 |
+| 235 | Osama Heikal | no answer (budget) | – | 12 / 0 / 3 / 5.3 | **correct** | Osama Heikal (95%) | 22 / 16 / 2 / 17.6 |
+| 236 | June | no answer (budget) | – | 13 / 0 / 3 / 3.4 | no answer (budget) | – | 12 / 0 / 3 / 5.8 |
+| 244 | Psychedelics | no answer (budget) | – | 25 / 6 / 10 / 11.4 | no answer (budget) | – | 32 / 4 / 14 / 9.0 |
+| 330 | The Last of Us | wrong answer | Stranger Things (75%) | 12 / 0 / 2 / 4.2 | no answer (budget) | – | 12 / 0 / 2 / 3.2 |
+| 362 | Captain Star | no answer (budget) | – | 12 / 0 / 2 / 2.9 | no answer (budget) | – | 12 / 0 / 2 / 3.4 |
+| 416 | Hsiang Sing Naik | no answer (budget) | – | 12 / 0 / 2 / 2.6 | no answer (budget) | – | 21 / 3 / 8 / 7.8 |
+| 427 | Guerlain | no answer (budget) | – | 12 / 0 / 2 / 4.4 | wrong answer | Singer Company (40%) | 40 / 9 / 19 / 35.8 |
+| 428 | Preston | no answer (budget) | – | 14 / 0 / 3 / 5.0 | **correct** | Preston (95%) | 12 / 0 / 2 / 4.4 |
+| 473 | 28 October 2014 | no answer (quit) | – | 1 / 0 / 0 / 0.4 | no answer (budget) | – | 16 / 2 / 5 / 5.4 |
+| 505 | Max Mazanov | **correct** | Max Mazanov (100%) | 27 / 9 / 6 / 17.3 | **correct** | Max Mazanov (100%) | 29 / 5 / 14 / 16.7 |
+| 514 | Maximilian Josef Sommer | **correct** | Maximilian Josef Sommer (100%) | 14 / 1 / 6 / 6.6 | **correct** | Maximilian Josef Sommer (100%) | 16 / 2 / 5 / 6.3 |
+| 521 | Chop Sock Chooks Bang Bang Bang Bang | no answer (budget) | – | 14 / 1 / 3 / 6.6 | no answer (budget) | – | 12 / 0 / 2 / 4.2 |
+| 540 | Casey Means | no answer (budget) | – | 14 / 0 / 3 / 2.3 | no answer (budget) | – | 13 / 0 / 3 / 3.1 |
+| 576 | Cobra Verde | no answer (quit) | – | 1 / 0 / 0 / 0.4 | wrong answer | The Name of the Rose (60%) | 21 / 5 / 7 / 11.2 |
+| 581 | 90g | **correct** | 90g (95%) | 29 / 2 / 7 / 9.8 | no answer (budget) | – | 64 / 16 / 28 / 53.6 |
+| 624 | 65% | no answer (budget) | – | 13 / 1 / 3 / 4.4 | wrong answer | 66% (95%) | 25 / 6 / 6 / 16.9 |
+| 652 | Auxly | no answer (budget) | – | 21 / 2 / 5 / 9.2 | no answer (budget) | – | 21 / 5 / 7 / 9.1 |
+| 679 | ASCENT project 10 | no answer (budget) | – | 13 / 1 / 3 / 5.8 | wrong answer | Aircraft Technology Modeling and Assessment (95%) | 29 / 5 / 14 / 14.1 |
+| 702 | Robert D. McBain | no answer (budget) | – | 12 / 0 / 2 / 3.4 | no answer (budget) | – | 18 / 2 / 6 / 7.4 |
+| 713 | Kai Tomety | no answer (budget) | – | 14 / 0 / 3 / 6.6 | wrong answer | Unable to determine from available search results (0%) | 22 / 2 / 10 / 8.7 |
+| 751 | Alan Sanfey | no answer (budget) | – | 12 / 0 / 2 / 4.3 | no answer (budget) | – | 12 / 0 / 2 / 5.1 |
+| 758 | Pipe | no answer (budget) | – | 13 / 0 / 3 / 4.7 | wrong answer | Dual Haloes (chakrams) (75%) | 21 / 4 / 8 / 12.3 |
+| 771 | Vakkorama | **correct** | Vakkorama (100%) | 18 / 4 / 7 / 10.1 | **correct** | Vakkorama (100%) | 10 / 1 / 3 / 6.6 |
+| 796 | Odeal | no answer (quit) | – | 1 / 0 / 0 / 0.5 | no answer (budget) | – | 12 / 0 / 3 / 7.8 |
+| 805 | Ana Djaimilia dos Santos Pereira de Almeida Brito | no answer (budget) | – | 28 / 6 / 11 / 16.3 | no answer (budget) | – | 49 / 10 / 19 / 45.7 |
+| 821 | 94% | no answer (budget) | – | 12 / 0 / 2 / 2.6 | **correct** | 94% (80%) | 103 / 24 / 47 / 32.0 |
+| 838 | Sandie Hatch | no answer (budget) | – | 17 / 1 / 6 / 3.4 | no answer (budget) | – | 21 / 5 / 7 / 7.1 |
+| 869 | kindergarten | no answer (budget) | – | 12 / 0 / 2 / 2.9 | no answer (budget) | – | 18 / 2 / 5 / 4.5 |
+| 873 | 27 | no answer (budget) | – | 12 / 0 / 3 / 3.3 | no answer (budget) | – | 56 / 20 / 24 / 18.7 |
+| 887 | Javier Rodriguez | **correct** | Javier Rodriguez (95%) | 18 / 0 / 3 / 4.9 | no answer (budget) | – | 12 / 0 / 2 / 3.5 |
+| 927 | Plastic Man | no answer (budget) | – | 12 / 0 / 2 / 3.2 | no answer (budget) | – | 14 / 1 / 3 / 5.4 |
+| 962 | Spatial Analysis of Weather Crash Patterns | no answer (budget) | – | 19 / 4 / 5 / 12.4 | no answer (budget) | – | 26 / 7 / 7 / 13.0 |
+| 978 | Olka Gretcher | **correct** | Olka Gretcher (100%) | 17 / 3 / 5 / 6.8 | no answer (budget) | – | 14 / 0 / 5 / 7.3 |
+| 987 | Guille Milkyway | no answer (quit) | – | 1 / 0 / 0 / 0.4 | wrong answer | Guillem Vilella Falgueras (85%) | 23 / 5 / 8 / 9.9 |
+| 1023 | Hatpin | no answer (budget) | – | 14 / 0 / 4 / 5.6 | **correct** | hatpin (100%) | 33 / 5 / 12 / 12.9 |
+| 1082 | Jagannatha Hora | wrong answer | Not found in corpus; possible candidates include Nick Montfo (15%) | 12 / 0 / 2 / 3.0 | no answer (budget) | – | 32 / 7 / 15 / 23.4 |
+| 1115 | Norman Vanua | no answer (budget) | – | 25 / 4 / 8 / 13.0 | **correct** | Norman Vanua (100%) | 38 / 19 / 12 / 26.2 |
+| 1155 | Giusewa | **correct** | Giusewa (95%) | 12 / 5 / 1 / 5.5 | wrong answer | El Morro National Monument (65%) | 27 / 5 / 10 / 16.9 |
+| 1200 | Law & Order: Justice Is Served | no answer (budget) | – | 12 / 0 / 2 / 3.6 | no answer (budget) | – | 12 / 0 / 2 / 3.4 |
+| 1204 | Stephan Weyte | **correct** | Stephan Weyte (100%) | 18 / 7 / 3 / 10.3 | no answer (budget) | – | 12 / 0 / 2 / 4.9 |
+| 1232 | Prince of Shadows | no answer (budget) | – | 12 / 0 / 2 / 3.6 | no answer (budget) | – | 15 / 3 / 3 / 7.1 |
+| 1252 | August 13-August 29, 2004 | no answer (budget) | – | 12 / 0 / 3 / 4.8 | wrong answer | 2004 Athens Olympics (Aug 13-29, 2004, Year: 2004) (60%) | 79 / 23 / 38 / 41.0 |
+| 1260 | Aynabaji | no answer (budget) | – | 15 / 1 / 3 / 3.7 | **correct** | Aynabaji (100%) | 11 / 2 / 6 / 7.0 |
+| 1266 | Maryam Tanveer Ali | **correct** | Maryam Tanveer Ali (100%) | 10 / 3 / 4 / 4.0 | **correct** | Maryam Tanveer Ali (95%) | 9 / 1 / 5 / 3.3 |
+
+### Analysis: 4B
+
+1. **Editing context is what separates success from failure.** Trials that made at least one
+   real context edit got 9/19 right (47%); trials that never edited got 1/31 (3%). This is
+   correlation, not proof (easier questions may both invite edits and be solvable), but it
+   mirrors ContextBench, where edit-or-not decides the score.
+2. **The method text is adopted only 38% of the time** (19/50 trials made any edit). When it
+   is adopted it is used sparingly: 1–9 edits, median 3, often batching several blocks into one.
+   On KV the same model edits once per batch, every batch.
+3. **The "keep a provisional answer" instruction mostly fails.** 33 trials ran out of context
+   without writing any answer, despite the instruction, 2–11 nudges each, and the final-turn notice.
+   This is the largest loss bucket and the cheapest to fix (e.g. a harness-side finalize turn).
+4. **Precision is high:** 10 of 12 answers are right; answers are written only when the
+   model has found the evidence. Stated confidence is mostly 95–100%.
+5. **Run-to-run variance is large:** 1204 failed in all three smoke variants but is correct
+   here, while 69 and 624 (both correct in smoke v3, same setup) ran out of budget unanswered
+   here. Smoke v3 on the same 5 questions: 2/5; here: 1/5. n=1 per question, so per-question
+   claims are weak, and the 20% has a wide interval (Wilson 95%: ~11–33%).
+
+### Analysis: 9B vs 4B
+
+1. **9B ≥ 4B on BCP, unlike KV / LogTriage.** 12–13 vs 10 correct; the 9B adopts the
+   method text far more (70% of trials edit vs 38%), never quits early, and answers 21
+   questions vs 12.
+2. **Editing still separates success from failure** for both models: 11/35 vs 1/15 (9B, 31% vs 7%),
+   9/19 vs 1/31 (4B, 47% vs 3%). Correlational, as before.
+3. **The 9B trades precision for coverage:** 12–13 of 21 answers right (≈ 60%) vs 10 of 12
+   (83%) for the 4B; it commits to plausible wrong candidates (427, 576, 758).
+4. **Budget exhaustion without an answer is still the biggest bucket** (33 / 29 of 50), despite
+   the "keep a provisional answer" instruction, for both models.
+5. **Cost:** the 9B takes ~1.7x the LM calls and ~2.3x the wall time per question.
+6. **Little overlap between the models.** Correct for both: 5 (120, 505, 514, 771, 1266);
+   4B only: 5 (581, 887, 978, 1155, 1204); 9B only: 7 (69, 235, 428, 821, 1023, 1115, 1260).
+   17 distinct questions solved by at least one model; with n=1 per question, which
+   questions get solved is largely run-to-run luck.
+7. Wide intervals: Wilson 95% ~11–33% for 10/50, ~16–40% for 13/50.
+
+### Utilization
+
+4B run (19:02–19:42, 30 s samples): GPU util 100% throughout, CPU mean 12% (max 18%) of 96 cores.
+GPU-bound, shared with 6–9 ContextBench trials at the same time, so wall-clock times include queueing in vLLM.
 
 ## Caveats
 
-- n = 2 seeds per level (4 for KV at R1000+). KV R4000 shows that 2 seeds can hide failures:
-  treat every 2-seed result as provisional.
-- Failure diagnoses come from snapshot token / message counts and the last edit command per
-  trial (the model's own edits remove earlier commands from the trajectory), not a turn-by-turn read.
-- Paper settings, not App. F; proot instead of Docker (no CPU / memory limits, no network isolation).
-- The paper's reference rows are Qwen3.6-27B (1.0 at KV R1000), so "matches" means "same ceiling".
-- BCP: our method text is a deviation; substring grading plus hand check, no judge; one run per question.
+- Our method text is a deviation, so the 20–26% is "model + our BCP recipe", not the paper's
+  condition.
+- Substring grading plus a hand check; the planned 27B judge was not run.
+- One run per question; wide intervals (Wilson 95% ~11–33% for 10/50, ~16–40% for 13/50).
 
-## Source notes
+## Source notes (archived originals)
 
-| Run | Note | Per-trial table |
+| Run | Note | Per-question table |
 |---|---|---|
-| Smoke grid | [`smoke-grid-results.md`](archive/smoke-grid-results.md) | [`figs/smoke-grid.md`](figs/smoke-grid.md) |
-| KV 4B | [`m2-kv-results.md`](archive/m2-kv-results.md) | [`figs/m2-kv.md`](figs/m2-kv.md) |
-| KV 9B, extra seeds | [`m2-kv-9b-results.md`](archive/m2-kv-9b-results.md) | [`figs/m2-kv-4b-vs-9b.md`](figs/m2-kv-4b-vs-9b.md) |
-| LogTriage 4B | [`m2b-logtriage-results.md`](archive/m2b-logtriage-results.md) | [`figs/m2b-logtriage.md`](figs/m2b-logtriage.md) |
-| LogTriage 9B | [`m2b-logtriage-9b-results.md`](archive/m2b-logtriage-9b-results.md) | [`figs/m2b-logtriage-4b-vs-9b.md`](figs/m2b-logtriage-4b-vs-9b.md) |
-| Needle 4B | [`m2c-needle-results.md`](archive/m2c-needle-results.md) | [`figs/m2c-needle.md`](figs/m2c-needle.md) |
-| Needle 9B | [`m2c-needle-9b-results.md`](archive/m2c-needle-9b-results.md) | [`figs/m2c-needle-4b-vs-9b.md`](figs/m2c-needle-4b-vs-9b.md) |
 | BCP smoke + v2 / v3 | [`bcp-smoke-results.md`](archive/bcp-smoke-results.md) | (in the note) |
 | BCP 50 q, 4B | [`bcp50-v3-results.md`](archive/bcp50-v3-results.md) | [`figs/bcp50-v3.md`](figs/bcp50-v3.md) |
 | BCP 50 q, 9B | [`bcp50-v3-9b-results.md`](archive/bcp50-v3-9b-results.md) | [`figs/bcp50-v3-9b.md`](figs/bcp50-v3-9b.md) |

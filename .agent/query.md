@@ -23,4 +23,8 @@ What can be improved if it is indeed affected by uncertainty?
 -  (Need more suggestion, so we can form better research implication)
   
 So here is what I want you to do:
-- Find relevant literature regarding context uncertainty, 
+- Find relevant literature regarding context uncertainty, possible Uncertainty Quantification method, elicitation method, any similar readings, and give a short 1-3 sentences of summary about the paper (what they are trying to report)
+- Brainstorm possible idea to elicit the aforementioned model behavior or idea about what kind of behavior that may serve as good proxy
+- Brainstorm what can be implied from understanding the uncertainty in the context management
+
+

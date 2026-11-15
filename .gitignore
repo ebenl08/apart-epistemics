@@ -4,3 +4,5 @@ external/
 data/
 runs/
 __pycache__/
+
+.env
