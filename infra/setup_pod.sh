@@ -20,6 +20,8 @@ uv venv -q /root/envs/clm-env --python 3.12
 VIRTUAL_ENV=/root/envs/clm-env uv pip install -q -e "$ROOT/context-language-models" \
   -e "$ROOT/data/ContextBench[tokenizer]" matplotlib pandas pyarrow
 
-/root/envs/clm-env/bin/python "$ROOT/infra/pull_rootfs.py" /root/rootfs/py312slim
+# Pin to the M5 rootfs (from its setup log on the volume) so logged trials stay replayable.
+/root/envs/clm-env/bin/python "$ROOT/infra/pull_rootfs.py" /root/rootfs/py312slim \
+  $(grep -oE 'rootfs ok sha256:[0-9a-f]+' "$ROOT/runs/logs/setup-pod.log" | head -1 | cut -d' ' -f3)
 wait
 echo SETUP_DONE

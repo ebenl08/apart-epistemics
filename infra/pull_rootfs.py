@@ -1,5 +1,6 @@
 """Pull python:3.12-slim (linux/amd64) from Docker Hub into a plain rootfs dir (no Docker needed).
-Usage: python pull_rootfs.py /root/rootfs/py312slim  -> also writes <dir>.digest
+Usage: python pull_rootfs.py /root/rootfs/py312slim [amd64-manifest-digest]  -> also writes <dir>.digest
+Pass the digest to rebuild an earlier rootfs exactly (needed to replay logged trials).
 """
 import io, json, os, sys, tarfile, urllib.request
 
@@ -17,10 +18,13 @@ def get(url, token, accept=None):
 tok = json.load(urllib.request.urlopen(
     f"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{REPO}:pull"))["token"]
 base = f"https://registry-1.docker.io/v2/{REPO}"
-idx = json.load(get(f"{base}/manifests/{TAG}", tok,
-                    "application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json"))
-digest = next(m["digest"] for m in idx["manifests"]
-              if m["platform"]["os"] == "linux" and m["platform"]["architecture"] == "amd64")
+if len(sys.argv) > 2:
+    digest = sys.argv[2]
+else:
+    idx = json.load(get(f"{base}/manifests/{TAG}", tok,
+                        "application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json"))
+    digest = next(m["digest"] for m in idx["manifests"]
+                  if m["platform"]["os"] == "linux" and m["platform"]["architecture"] == "amd64")
 man = json.load(get(f"{base}/manifests/{digest}", tok,
                     "application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json"))
 os.makedirs(out, exist_ok=True)

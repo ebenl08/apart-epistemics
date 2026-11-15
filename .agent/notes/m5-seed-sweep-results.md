@@ -129,6 +129,62 @@ M2 traced the same pattern to a few batches that were never offloaded. This was 
 - The 9B-RL "transfer" result is out of distribution for that checkpoint (it was trained on search tasks).
 - The diagnoses of the zero-reward trials rest on their final calls only.
 
+## `skill=none` arm (4B and 9B done; 9B-RL running)
+
+Date: 2026-11-15, 13:39–16:24 UTC, pod `f9a3dd720awllw` (1×A40, EU-SE-1, $0.59/h).
+Per-trial table: [`figs/m5-none.md`](figs/m5-none.md). Plots: [`figs/m5-none.png`](figs/m5-none.png) (reward),
+[`figs/m5-none-progress.png`](figs/m5-none-progress.png) (stream progress, `none` vs `clm`).
+
+**Control:** as M5 above, same rootfs digest (`sha256:05a994d2…`), every LM call logged
+(`runs/m5-lmlog/m5n-<model>__<task>.jsonl`).
+**Vary:**
+- `skill=none`: harness system prompt only, no per-family method text.
+- 4 seeds per cell: 42–45, except 4B / 9B at R260 and L320, which use 43–46 (M2's seed-42 `none` trials there were not logged).
+- 32 trials per model, all new.
+
+**Deviations:**
+- 10 9B KV trials died on litellm request timeouts when 32 full-context trials overflowed the KV cache (143 preemptions).
+  They were rerun 10 at a time; the failed attempts are in `runs/m5n-9b-failed/` and not counted.
+- 9B-RL runs 16 at a time.
+
+![skill=none vs clm: stream progress](figs/m5-none-progress.png)
+
+### Result: without the method text, both models fail at every level
+
+| Family | Model | Level | Mean reward | Wall | Ops done (of total) | Edits / trial | Peak ctx |
+|---|---|---|---|---|---|---|---|
+| KV | 4B | R260 (0.4x) | 0.00 | 4/4 | 2.8 / 27 | 0 | 31.3k |
+| KV | 4B | R1000 (1.5x) | 0.00 | 4/4 | 4.0 / 34 | 0.5 | 34.3k |
+| KV | 4B | R4000 (6.0x) | 0.00 | 4/4 | 2.0 / 64 | 0.25 | 43.6k |
+| KV | 4B | R16000 (23.9x) | 0.00 | 4/4 | 2.8 / 184 | 0 | 30.8k |
+| KV | 9B | R260 | **0.09** | 4/4 | 5.0 / 27 | 0 | 32.0k |
+| KV | 9B | R1000 | 0.00 | 4/4 | 2.8 / 34 | 0 | 31.4k |
+| KV | 9B | R4000 | 0.00 | 4/4 | 3.3 / 64 | 0 | 31.6k |
+| KV | 9B | R16000 | 0.00 | 4/4 | 4.0 / 184 | 0 | 31.6k |
+| LogTriage | 4B | L320 (0.5x) | 0.00 | 4/4 | 17.0 / 47 | 0 | 25.5k |
+| LogTriage | 4B | L1600 (2.2x) | 0.00 | 4/4 | 21.8 / 139 | 0 | 25.6k |
+| LogTriage | 4B | L6400 (7.9x) | 0.00 | 4/4 | 6.5 / 143 | 0 | 26.3k |
+| LogTriage | 4B | L12800 (15.7x) | 0.00 | 4/4 | 5.8 / 262 | 0 | 26.7k |
+| LogTriage | 9B | L320 | 0.00 | 4/4 | 19.3 / 47 | 1.25 | 25.9k |
+| LogTriage | 9B | L1600 | 0.00 | 4/4 | 18.0 / 139 | 0 | 25.6k |
+| LogTriage | 9B | L6400 | 0.00 | 4/4 | 6.0 / 143 | 0 | 27.9k |
+| LogTriage | 9B | L12800 | 0.00 | 4/4 | 6.8 / 262 | 0.25 | 28.5k |
+
+1. **64/64 trials hit the budget wall; 63/64 score 0.** The one nonzero is 9B KV R260 s44 (0.375: 12/27 ops,
+   0 edits). Mean reward: 4B 0.00, 9B 0.01. Trend tests and the logistic model are undefined with no successes.
+2. **Neither model manages its context without the method text.** 9 edits in 64 trials (4B 3, 9B 6), against one edit
+   per batch with `skill=clm`. Each trial stops after a few ops, once the stream fills the 32k budget.
+3. **Progress falls with pressure for both models, at the same rate** (dashed lines in the plot). KV: 4B 10% → 1%,
+   9B 19% → 2% of the stream. LogTriage: 4B 36% → 2%, 9B 41% → 3%. This is mechanical: a fixed ~30k of context
+   covers a shrinking share of a longer stream. The 4B / 9B difference from M5 appears only with `skill=clm`.
+4. **Against M2's single seed-42 `none` trials** (4B R260 0.125, 9B R260 0.708, 4B L320 0.000, 9B L320 0.083): the
+   9B KV R260 0.708 looks like an outlier (17/24 answers before the wall); the new seeds reach 2–12 of 27 ops.
+   Rootfs and seeds differ, so this is not a direct comparison.
+
+**For step 2:** `none` gives a no-management baseline. Its context decisions are almost never edits, so semantic
+entropy over edit/offload/delete clusters will be near 0 by construction. The useful contrast is `clm` trials
+(and possibly the 9 `none` trials with edits).
+
 ## Runtime and cost
 
 | Batch | Wall clock |
