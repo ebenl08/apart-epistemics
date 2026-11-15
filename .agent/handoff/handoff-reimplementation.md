@@ -1,9 +1,18 @@
 # Handoff (temporary): CLM reimplementation, overnight runs (M2 KV/LogTriage/Needle, BCP)
 
-Session: reimplementation. Updated: 2026-11-14 22:55 UTC (overnight runs finished, pushed).
+Session: reimplementation. Updated: 2026-11-15 01:35 UTC (overnight runs finished and pushed; host idle, waiting on user).
 Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md).
 Decisions: [`../decisions.md`](../decisions.md). Overnight checklist (live status):
 [`../notes/overnight-checklist.md`](../notes/overnight-checklist.md).
+
+## Start here (next session)
+
+1. Read this file, then [`../notes/overnight-checklist.md`](../notes/overnight-checklist.md) (all ticked)
+   and the result notes linked below.
+2. Nothing is running except the servers listed under "Running at handoff". The GPU is idle.
+3. Before launching anything, get the user's answers to the open questions in "Next steps"
+   (judge, more seeds, elicitation target). The judge needs disk, and freeing it means deleting
+   things, so it needs the user's OK.
 
 ## Where things stand
 
@@ -61,10 +70,14 @@ for the user:
 
 ## Running at handoff
 
-- vLLM **4B** on :8000 (`runs/logs/vllm-serve-4b-c.log`); BM25 search server on :8100
-  (`runs/logs/bcp-search.log`); `infra/util_log.sh` writing `runs/logs/util-bcp-smoke-m2.csv`
-  every 30 s (GPU util, memory, power, CPU busy, load, RAM).
-- No trials running.
+Checked 01:33 UTC:
+- vLLM **4B** (`qwen35-4b`) on :8000 (`runs/logs/vllm-serve-4b-c.log`), idle (GPU 0%, 41 GB
+  pre-allocated). Swap to 9B: kill by pid (see Gotchas), then serve 9B as in the git history.
+- BM25 search server on :8100 (`runs/logs/bcp-search.log`; `/` returns 404, that is normal).
+- `infra/util_log.sh` (pid 12954) still writing `runs/logs/util-bcp-smoke-m2.csv` every 30 s;
+  safe to stop (`kill 12954`) or keep for the next runs.
+- No trials running, no sandboxes left in `/root/chroots/`. Disk: `/` 11 GB free,
+  `/workspace` 30 GB used. Git: `reimplementation-m1` clean and in sync with origin.
 
 ## Tools added tonight
 
@@ -89,5 +102,7 @@ and KV seeds 44/45; `data/bcp_tasks/` all 50; `data/bcp_tasks_v3/` the v3 copies
 - Two concurrent trials of the same task used to share one sandbox root (fixed: random suffix).
 - Harbor/litellm logs print "Provider List" noise for the cost lookup; ignore.
 - Every proot command prints a harmless "can't chdir" warning (host cwd absent in the guest).
-- The `docs(agent)` notes quote only the last edit command per trial (earlier ones are
-  edited out of the trajectory by the model itself).
+- Failure diagnoses in the notes rest on the last edit command per trial only: the model's
+  own edits remove earlier commands from the trajectory.
+- n=2 seeds can hide failures (KV R4000 4B: seeds 42/43 perfect, 44/45 both 0). Treat any
+  2-seed result as provisional.
