@@ -101,3 +101,18 @@ User switched to 1×A40 (no 2×A40 free; RTX 4090 rejected: 24 GB too small for 
 
 ## 2026-11-16 — M6 turn labels renamed
 User: `logged_edit: bool` replaced by `turn_type` = `context_edit_turn` (harness note "edit applied" in the tool result) or `context_stay_turn` (otherwise). Point selection = all `context_edit_turn`s + 20 fill-stratified `context_stay_turn`s; the label is carried into the Step 8 per-point output.
+
+## 2026-11-16 — M6 pod: 1×A40, 9B only
+User: M6 runs on the 9B only; 9B-RL only after 9B results are reported. Separate pod (the M5 `none` pod is stopped by its own session). GPU cap $1.5/h. L40S rejected: not offered in EU-SE-1 (volume region) and ~1.5× speed for 1.85× price; RTX A6000 ~same speed as A40 for +$0.10/h. Pod `obvrywyztadwv4` (`clm-m6-se`), 1×A40, $0.59/h, EU-SE-1, volume `hri0q37of4`; `setup_pod.sh` done, rootfs digest `sha256:05a994d2…` matches M5. Estimate: ~2–4 A40-h of GPU for 9B (sampling ~15k generations, ~200 output tokens each, measured from logs).
+
+## 2026-11-16 — M5B planned: Llama 3.1 8B + Gemma 3 on the M5 sweep (awaiting confirmation)
+User: same KV + LogTriage evaluation on Llama-3.1-8B-Instruct and Gemma 3 4B, `clm` at 4 seeds, `none` smoke at 2 seeds (extend to 4 unless mostly 0 with almost no edits); Gemma fallback 3 12B then 2 9B if no decline; Llama fallback the base 8B; new 2×A6000 pod (one GPU per family) on the same volume; routine monitor. Plan and decision rules: `.agent/instruction-m5b.md`. Flagged before running: all four models are gated (no HF token in `.env`); Gemma 2 9B has an 8k context (below the 32k budget); Llama base has no chat/tool format; no thinking mode on these models.
+
+## 2026-11-16 — M6 milestones 1–2 (entropy.py, Pass 1 replay, Gate A)
+- `infra/semantic_entropy/entropy.py`: SE, weighted SE, outcome key, clustering, `label_blocks`; imports the harness `_HEADER_RE`. Self-check passes.
+- `infra/semantic_entropy/collect.py` subcommands `turns/replay/points/sample/execute`. Sandbox built through harbor's own objects (`Task`, `ChrootEnvironment.start`, `ClmStream.setup`, `cb_setup`), roots on the container disk (`/root/m6roots`), not the volume.
+- **Turn loader fix:** the proxy writes lines at completion, so a slow retried call lands after its retry (`kv-store-R4000-seed46`, a 10-min call). Lines are sorted by `t0`; a call "ran" iff any later request has its `tool_call_id`. Kept turns = timing-log bash steps − 1 (the last call has no next request to check against) on all 4 dev trials.
+- Status names: no-tool-call samples are keyed `no_tool_call` (plan: `no_command`), `context_status` as is; harness exceptions during a sample → `error`.
+- Data files for clobber = everything under `/tmp` and `/app` except `/tmp/.live_ctx` and `/tmp/.bash_ctx_state` (plan: `/tmp` only; `/app` added since the task workdir is `/app`).
+- Dev trials (9B): KV R4000 s46 (wall, 0.125) / s49 (1.0); LogTriage L1600 s49 (wall, 0) / s47 (1.0).
+- **Gate A: pass.** 4/4 trials, 432/432 turns byte-identical tool results (no divergence, no note-only mismatches). Rootfs digest matches M5.
