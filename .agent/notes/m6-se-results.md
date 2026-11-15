@@ -23,8 +23,9 @@ or `invalid` / `no_tool_call` / `context_status` / `error`; discrete SE in bits.
 | 2 | Gate A on dev trials | **done: 4/4 trials, 432/432 turns byte-identical** |
 | 3 | Gate B + 10 labels hand-checked | **done: Gate B 160/160; 10/10 labels correct** |
 | 4 | SE for dev trials; 5 high-SE points read | **done** (below) |
-| 5 | Full 9B run + QA | running |
-| 6 | Part 2 analysis, go/no-go | pending |
+| 5 | Full 9B run + QA | **done: 42/42 trials, 1409 points, 14,090 samples, 0 errors, 0 prompt-token mismatches, Gate B 1397/1397** |
+| 6 | Part 2 analysis, go/no-go | **done: GO** (partial ρ = −0.59) |
+| 7 | Part 3 probe | running (activation extraction) |
 
 ## Dev trials (milestones 2–4)
 
@@ -52,4 +53,46 @@ or `invalid` / `no_tool_call` / `context_status` / `error`; discrete SE in bits.
 - Pass 1 on 42 trials: 40 identical, 2 diverge, both on `ls -la /tmp` (directory size / mtime differ; disk content
   the same). Per the plan, points after the divergence are dropped: LT L320 s49 keeps turns < 43 of 84, LT L1600 s45
   keeps < 101 of 130.
-- 1409 points chosen. Sampling at 16 concurrent points (dev used 8; KV cache was at 4%).
+- 1409 points chosen. Sampling at 16 concurrent points (dev used 8; KV cache was at 4%), plus a second
+  sampler walking the queue in reverse (first at 16, which caused 68 vLLM preemptions in ~10 min; restarted at 6,
+  no further preemptions). Preemption recomputes, it does not change samples. Sampling 18:50–20:30 UTC (~1.7 h).
+- Gate B 1237/1237 on the 38 non-dev trials (+160/160 dev). 0 sample errors, 0 prompt-token mismatches.
+
+## Part 2: SE vs reward (H1), 9B, n = 42 trials
+
+Full tables: [`figs/m6-se-m5-9b.md`](figs/m6-se-m5-9b.md); plots `figs/m6-se-m5-9b.png`, `figs/m6-se-fill-m5-9b.png`;
+per-trial CSV `figs/m6-se-trials-m5-9b.csv`. No format-slip trials among the 42 logged ones.
+
+| cell | n | reward | walls | mean SE | share SE = 0 |
+|---|---|---|---|---|---|
+| KV R260 | 6 | 0.93 | 1 | 0.07 | 0.91 |
+| KV R1000 | 4 | 0.54 | 2 | 0.19 | 0.70 |
+| KV R4000 | 4 | 0.53 | 2 | 0.41 | 0.50 |
+| KV R16000 | 4 | 0.25 | 3 | 0.33 | 0.55 |
+| LT L320 | 6 | 0.94 | 0 | 0.10 | 0.82 |
+| LT L1600 | 6 | 0.40 | 3 | 0.21 | 0.71 |
+| LT L6400 | 6 | 0.24 | 3 | 0.23 | 0.67 |
+| LT L12800 | 6 | 0.25 | 4 | 0.14 | 0.78 |
+
+**Main test (fixed in the plan): partial Spearman ρ(trial mean SE, reward | family×level) = −0.587,
+95% bootstrap CI [−0.775, −0.282].** Strong by the plan's bar (|ρ| ≥ 0.5). Max SE: −0.42 [−0.72, −0.05].
+Mean SE over points with fill ≥ 0.75: −0.31 [−0.87, +0.30] (only 19 trials have such points).
+
+- Regression `reward ~ mean_SE + C(family:level)`: SE coefficient −2.02 (SE 0.40, p < 0.001); ΔR² = +0.26
+  (0.40 → 0.66). A trial 0.1 bits more uncertain on average scores ~0.20 lower at the same pressure.
+- Robustness (not pre-registered):
+  - with mean fill and number of points added: coefficient −1.65, p = 0.0003;
+  - KV alone ρ = −0.78 (n 18), LogTriage alone ρ = −0.51 (n 24);
+  - edit turns only ρ = −0.45, stay turns only ρ = −0.42;
+  - **SE from the first half of each trial only: ρ = −0.24; OLS with fill p = 0.03.** Uncertainty is present
+    before the failure, not only at the wall;
+  - point SE vs fill: Spearman 0.20, so SE is not mainly context length.
+- SE rises with pressure up to level 3, then falls at level 4 in both families (the trials that hit the wall
+  early have fewer points and fewer edit decisions).
+- Step level:
+  - harmful-edit proxy AUROC 0.38: **the proxy is uninformative**. 971 of 1051 edit turns are "harmful" by it
+    because the recipe always deletes the previous command turns (routine, not damage). The plan's ground-truth
+    label (a deleted SET later asked for) was not built; it is the next thing to add for a step-level claim;
+  - AUROC of point SE for "this point is in a trial that hits the wall": 0.61 [0.59, 0.64].
+- **Go/no-go: GO** (partial ρ criterion met; AUROC criterion not met, see above).
+
