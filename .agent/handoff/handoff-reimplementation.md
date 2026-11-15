@@ -1,109 +1,95 @@
-# Handoff (temporary): CLM reimplementation, overnight runs (M2 KV/LogTriage/Needle, BCP)
+# Handoff (temporary): CLM reimplementation, M2 / BCP and M5 seed sweep
 
-Session: reimplementation. Updated: 2026-11-15 01:35 UTC (overnight runs finished and pushed; host idle, waiting on user).
-Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md).
-Decisions: [`../decisions.md`](../decisions.md). Overnight checklist (live status):
-[`../notes/overnight-checklist.md`](../notes/overnight-checklist.md).
+Session: reimplementation. Updated: 2026-11-15 11:20 UTC (M5 done, committed and pushed; pod stopped).
+Plans: [`../instruction-reimplementation.md`](../instruction-reimplementation.md),
+[`../instruction-seed-sweep.md`](../instruction-seed-sweep.md) (M5).
+Decisions: [`../decisions.md`](../decisions.md).
 
 ## Start here (next session)
 
-1. Read this file, then [`../notes/overnight-checklist.md`](../notes/overnight-checklist.md) (all ticked)
-   and the result notes linked below.
-2. Nothing is running except the servers listed under "Running at handoff". The GPU is idle.
-3. Before launching anything, get the user's answers to the open questions in "Next steps"
-   (judge, more seeds, elicitation target). The judge needs disk, and freeing it means deleting
-   things, so it needs the user's OK.
+1. Read this file, then [`../notes/m5-seed-sweep-results.md`](../notes/m5-seed-sweep-results.md) (latest results).
+2. **Nothing is running.** M5 pod `ia4u423t1fi61l` (2×A40) is **stopped** (EXITED).
+   - Restarting it keeps its container disk: venvs, 4B / 9B / 9B-RL weights, rootfs.
+   - Check that 2×A40 are available in EU-SE-1 before relying on a restart.
+3. The next step is step 2 of the research plan: uncertainty of the context decisions, using the M5 call logs.
+   Another session has drafted M6 (semantic entropy) in `decisions.md`, `instruction-semantic-entropy.md` and
+   `instruction-se-collection.md`. Those are uncommitted; coordinate with the user before committing them.
 
 ## Where things stand
 
-User's overnight brief (18:45 UTC): run as many ContextBench evals as possible, BCP if it works,
-smoke 4B/9B × skill none/clm, skip Sudoku if still problematic, write results + analysis +
-plot after every run and commit, watch disk, push when done.
-
-All results in one file: [`m2-bcp-results.md`](../notes/m2-bcp-results.md). The per-run notes
-below are archived in `.agent/notes/archive/`; plots and per-trial tables in `.agent/notes/figs/`.
-
 | Run | Note | Headline |
 |---|---|---|
-| Smoke grid 4B + 9B × none/clm | [`smoke-grid-results.md`](../notes/archive/smoke-grid-results.md) | no-skill hits the wall on KV/LogTriage at 0.5x; 9B+clm 1.0 on all three |
-| KV 4B + clm | [`m2-kv-results.md`](../notes/archive/m2-kv-results.md) | seeds 42/43: 189/192, 1.0 up to 24x; seeds 44/45: R4000 0/0 (residue wall) |
-| KV 4B vs 9B, 4 seeds at R1000+ | [`m2-kv-9b-results.md`](../notes/archive/m2-kv-9b-results.md) | R1000 1.00 vs 0.74, R4000 0.50 vs 0.56, R16000 1.00 vs 0.00; budget wall 2/12 vs 8/12 |
-| LogTriage 4B / 9B + clm | [`m2b-logtriage-results.md`](../notes/archive/m2b-logtriage-results.md), [`m2b-logtriage-9b-results.md`](../notes/archive/m2b-logtriage-9b-results.md) | 4B 0.87, 9B 0.31 |
-| Needle 4B / 9B + clm | [`m2c-needle-results.md`](../notes/archive/m2c-needle-results.md), [`m2c-needle-9b-results.md`](../notes/archive/m2c-needle-9b-results.md) | 4B 0.51 (wrong anchor deletes needles), 9B 0.72 |
-| BCP smoke + variants | [`bcp-smoke-results.md`](../notes/archive/bcp-smoke-results.md) | as configured 0/5; our method text in the instruction (v3) 2/5 |
-| BCP 50 q, 4B, v3 | [`bcp50-v3-results.md`](../notes/archive/bcp50-v3-results.md) | 10/50 (9/19 when it edited, 1/31 when not) |
-| BCP 50 q, 9B, v3 | [`bcp50-v3-9b-results.md`](../notes/archive/bcp50-v3-9b-results.md) | 12/50 strict, 13 after hand check; edits in 70% of trials |
+| M2 ContextBench 4B / 9B (2–4 seeds) | [`m2-contextbench-results.md`](../notes/m2-contextbench-results.md) | 4B and 9B fail CLM differently; build-up of the model's own old turns until the budget wall is the common failure |
+| M4 BCP 50 q (v3 method text) | [`m2-bcp-results.md`](../notes/m2-bcp-results.md) | 4B 10/50, 9B 12–13/50 |
+| **M5 ContextBench seed sweep, 4B / 9B / 9B-RL, 8 seeds per cell** | [`m5-seed-sweep-results.md`](../notes/m5-seed-sweep-results.md) | **The 9B declines with pressure** (trend p ≤ 0.002 on KV and LogTriage); it falls faster than the 4B (model × pressure interaction p = 0.027); budget wall above 0.5x: 4B 9/48, 9B 28/48, 9B-RL 13/48. The RL checkpoint lifts the 9B but keeps its slope |
 
-Key finding: **4B and 9B have complementary CLM failures.** The 4B executes literal recipes
-(KV, LogTriage) for hundreds of turns more often than not, but garbles intricate ones (Needle
-anchor, Sudoku in-place edit). The 9B copies intricate recipes correctly but improvises on
-long literal ones (dumps, mirror greps, chat-text answers) and lets residue build up until the
-budget wall. Residue build-up hits both models (KV above 0.5x: 4B 2/12, 9B 8/12), and 2 seeds
-were not enough to see that for the 4B. On BCP the 9B is slightly ahead (13 vs 10 / 50).
+- M5 used KV + LogTriage only (Needle and Sudoku left out). It ran new seeds only for the 4B and 9B, combined with
+  the M2 seeds to make 8 per cell.
+- The 9B-RL arm is [`context-language-model/rl-ckpt-livectx_dapo-iter44`](https://huggingface.co/context-language-model/rl-ckpt-livectx_dapo-iter44)
+  @ `ffc4aab2f30cb5b802ced6c84e6590ab5fec213d`.
+- **Every M5 LM call is logged:** `runs/m5-lmlog/<run>__<task>.jsonl` on the network volume, ~0.7 GB.
+  Each line holds the full request plus the response. This is the input for uncertainty replays.
+- Four zero-reward trials are answer-format slips, not context failures (listed in the M5 note).
 
-Decisions tonight (logged): Sudoku skipped (seed-42 slip reproduced); no BCP judge
-(substring grader, all 10 4B "correct" hand-checked as exact gold matches); `CB_SETTINGS=paper`
-for every ContextBench run; BCP v3 method text is our deviation from the paper.
+Older M2 per-run notes are in `.agent/notes/archive/`; plots and per-trial tables are in `.agent/notes/figs/`.
 
-## Next steps
+## Next steps (open)
 
-All overnight items are done, committed and pushed (`reimplementation-m1`). Open questions
-for the user:
-1. Run the BCP judge (Qwen3.5-27B-GPTQ-Int4; needs a GPU swap and ~20 GB on `/`, which has
-   ~9 GB free: freeing the 9B weights or the uv cache needs the user's OK)? It would mainly
-   settle near-misses like 9B 1252 (equivalent date) and 987 (possible alias).
-2. More seeds: the 4B R4000 seeds 44/45 failures show n=2 is too small; LogTriage / Needle
-   4B-vs-9B gaps also rest on 2 seeds.
-3. The residue failure (the `prev` cut stops being applied) is the common failure across
-   models and families; a natural target for the elicitation / interp experiments.
-4. Full no-skill ladders (cheap, expected ~0 above 0.5x) if a baseline curve is wanted.
+1. Step 2: extract uncertainty scores at edit turns from the M5 logs. Contrast budget-wall against successful trials
+   and the three models (4B / 9B: different slopes; 9B / 9B-RL: same slope, different level).
+2. Optional: the BCP judge (Qwen3.5-27B-GPTQ-Int4), Needle at 8 seeds, no-skill baselines. None were requested.
 
-## Host (RunPod container)
+## Host
 
-- 1x A40 46 GB, 96 cores, 503 GB RAM. No Docker, no CAP_SYS_ADMIN.
-- `/workspace` = persistent quota-limited volume (~28 GB used of ~54). `/` = container disk,
-  50 GB, ~9 GB free during runs (each live trial sandbox is ~124 MB in `/root/chroots/`,
-  removed when the trial ends), lost if the pod is re-created.
-- Large things on `/`: venvs `/root/envs/{vllm-env,clm-env}` (clm-env now also has
-  matplotlib), HF cache `/root/hf_cache` (4B + 9B), rootfs `/root/rootfs/py312slim`,
-  BCP index `/root/bcp_index/`. Rebuild recipe if the pod is re-created: see git history
-  of this file (e4a2438).
+**M5 pod `ia4u423t1fi61l`** (stopped):
+- RunPod template `mpye6w4gcy`, 2×A40, EU-SE-1, $1.18/h while running.
+- Container disk 100 GB (`/`); network volume `hri0q37of4` at `/workspace` (repo, `data/`, `runs/`).
+- 96 cores visible, but a cgroup quota of ~16 cores (M5 used ≤ 3); 503 GB RAM.
+- SSH: direct only, `ssh -i ~/.ssh/id_ed25519 -p <port> root@<ip>`. The IP and port can change on restart: read them
+  from `GET https://api.runpod.io/v2/pods/<id>` (`ssh.direct`). Proxy SSH (`ssh.runpod.io`) rejects the key.
+- If the pod is re-created: `nohup infra/setup_pod.sh > runs/logs/setup-pod.log &`.
+  - It installs proot, the venvs, the 4B + 9B weights and the rootfs in about 5 min.
+  - Download the 9B-RL weights separately (the command is in `instruction-seed-sweep.md`).
+- On-disk layout on `/`:
+  - venvs `/root/envs/{vllm-env,clm-env,hf}`;
+  - weights `/root/hf_cache` (4B, 9B) and `/root/models/clm-9b-rl/converted`;
+  - rootfs `/root/rootfs/py312slim`.
 
-## Running at handoff
+**RunPod API:**
+- REST v1 was retired 2026-11-15; use v2 (`https://api.runpod.io/v2`).
+- The key is in `.env`, wrapped in quotes, so strip them.
+- The key cannot use `/exec` (403) or read account SSH keys.
 
-Checked 01:33 UTC:
-- vLLM **4B** (`qwen35-4b`) on :8000 (`runs/logs/vllm-serve-4b-c.log`), idle (GPU 0%, 41 GB
-  pre-allocated). Swap to 9B: kill by pid (see Gotchas), then serve 9B as in the git history.
-- BM25 search server on :8100 (`runs/logs/bcp-search.log`; `/` returns 404, that is normal).
-- `infra/util_log.sh` (pid 12954) still writing `runs/logs/util-bcp-smoke-m2.csv` every 30 s;
-  safe to stop (`kill 12954`) or keep for the next runs.
-- No trials running, no sandboxes left in `/root/chroots/`. Disk: `/` 11 GB free,
-  `/workspace` 30 GB used. Git: `reimplementation-m1` clean and in sync with origin.
+**Other pods on the account:**
+- `eben_gpu`, `eben_gpu-migration`: stopped.
+- `yuki_gpu`: running; not ours.
 
-## Tools added tonight
+## Tools
 
 | Path | What |
 |---|---|
-| `infra/run_queue.sh` | run a queue file (`MODEL SKILL TASK RUN_DIR` per line) with N concurrent, `CB_SETTINGS=paper` |
-| `infra/cb_report.py` | per-trial table + reward-vs-pressure plot (`--bars` for single-level grids) |
-| `infra/util_log.sh` | GPU/CPU CSV logger |
-| `infra/bcp/report.py` | BCP per-question table + outcome plot |
-| `infra/bcp/skill/bcp_search_{clm,ids}/`, `infra/bcp/make_v3_tasks.py` | BCP method-text variants (v2 / v3) |
-| `infra/run_cb_trial.sh` | `CB_SETTINGS=paper` (PAPER_KWARGS as-is) vs default `appf` (M1 overrides) |
-| `infra/run_bcp_trial.sh` | `MODEL`, `BCP_SKILL`, `BCP_TASKS` switches |
+| `infra/setup_pod.sh`, `infra/pull_rootfs.py` | rebuild the env on a fresh pod |
+| `infra/lm_log_proxy.py` | logging proxy in front of vLLM; trials use `api_base=http://localhost:<proxy>/<tag>/v1` |
+| `infra/run_queue.sh` | queue runner; `API_BASE_PREFIX` routes each trial through the proxy with tag `<run>__<task>` |
+| `infra/run_cb_trial.sh` | one ContextBench trial; `API_BASE` env overrides the endpoint |
+| `infra/serve_qwen35_{4b,9b}.sh` | vLLM servers; `PORT` + `CUDA_VISIBLE_DEVICES` from the environment. **Port 8001 is RunPod's nginx**: use 8000 / 8010 |
+| `infra/m5_status.sh` | one-screen status: queues, rewards, GPU / CPU / disk, vLLM preemptions |
+| `infra/m5_rl_launch.sh`, `infra/m5_rl_split.sh` | 9B-RL swap, smoke gate and full queue; moving trials to the second GPU |
+| `infra/cb_report.py` | per-trial table + reward-vs-pressure plot |
 
-Data added (gitignored): `data/cb_tasks/` now has LogTriage + Needle (all levels, seeds 42/43)
-and KV seeds 44/45; `data/bcp_tasks/` all 50; `data/bcp_tasks_v3/` the v3 copies.
+Data (gitignored):
+- `data/cb_tasks/` now also has KV R260 s44–49, R1000+ s46–49, and LogTriage s44–49.
+  - These are copied from `data/ContextBench/tasks/` (which has seeds 42–49 prebuilt), with the timeout raised from
+    14400 to 28800.
+- Runs: `runs/m5-{4b,9b,9b-rl}/`; aborted 9B-RL attempts in `runs/m5-9b-rl-aborted/` (not counted).
 
 ## Gotchas
 
-- Kill vLLM by its pid from `pgrep -f "envs/vllm-env/bin/python.*vllm serve"`, but never in
-  the same shell command that contains that pattern: `pgrep -f` then matches the shell itself
-  and `kill` takes the shell down (happened tonight; harmless, server was already dead).
-- Two concurrent trials of the same task used to share one sandbox root (fixed: random suffix).
-- Harbor/litellm logs print "Provider List" noise for the cost lookup; ignore.
-- Every proot command prints a harmless "can't chdir" warning (host cwd absent in the guest).
-- Failure diagnoses in the notes rest on the last edit command per trial only: the model's
-  own edits remove earlier commands from the trajectory.
-- n=2 seeds can hide failures (KV R4000 4B: seeds 42/43 perfect, 44/45 both 0). Treat any
-  2-seed result as provisional.
+- Kill vLLM by pid; never run `pgrep -f` / `pkill -f` with the pattern inside the same shell command (it kills that shell).
+  Inside a script file it is safe.
+- One A40 handles ~40 concurrent trials of a 4B / 9B with 0 preemptions. At ~60 concurrent 9B trials, per-trial speed
+  halved, so split across GPUs.
+- Background `nohup ... &` over SSH can keep the SSH session open; use `setsid nohup ... < /dev/null &`.
+- `cb_status.py` over SSH can hang for minutes on the network volume; run with `timeout`.
+- Harbor/litellm "Provider List" noise and proot "can't chdir" warnings are harmless.
+- Saved trajectories lose turns the model edited out; use `runs/m5-lmlog/` for the full per-call context (M5 onward).
