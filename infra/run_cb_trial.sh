@@ -23,7 +23,7 @@ exec harbor trials start \
   --trials-dir "$TRIALS_DIR" --trial-name "$TASK" \
   -e chroot_env:ChrootEnvironment \
   -a clm_contextbench:ClmStream -m "openai/${MODEL:-qwen35-4b}" \
-  --agent-kwarg api_base=http://localhost:8000/v1 \
+  --agent-kwarg "api_base=${API_BASE:-http://localhost:8000/v1}" \
   --agent-kwarg "skill=${SKILL:-none}" \
   "${OVERRIDES[@]}" \
   "$@"
