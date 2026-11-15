@@ -1,14 +1,14 @@
 # BCP smoke test results (BrowseComp-Plus, 5 questions)
 
 Date: 2026-11-14. Started 18:23 UTC. Status: **done** 18:30 UTC (all 5 trials finished in 17 s to 7.4 min).
-Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md) (M4, smoke).
+Plan: [`../instruction-reimplementation.md`](../../instruction-reimplementation.md) (M4, smoke).
 Raw trials: `runs/bcp-smoke/trials/` (gitignored). Utilization: `runs/logs/util-bcp-smoke-m2.csv`.
 Runs concurrently with M2 KV ([`m2-kv-results.md`](m2-kv-results.md)) on the same vLLM server.
 
 ## Setup (control unless marked)
 
 - Model: Qwen3.5-4B BF16, vLLM 0.33.0 (shared server, `infra/serve_qwen35_4b.sh`).
-- Agent: `ClmAgent` with [`bcp.yaml`](../../context-language-models/clm/clm_harness/configs/bcp.yaml):
+- Agent: `ClmAgent` with [`bcp.yaml`](../../../context-language-models/clm/clm_harness/configs/bcp.yaml):
   max_steps 500, T=0.7, budget 28672 / reserve 2048, nudges 0.25/0.5/0.75 + persistent 0.9,
   finalize nudges 3.
 - **Changed vs bcp.yaml:** `cost_metric=usd` (bcp.yaml's FLOPs key is for 27B; 4B
@@ -79,14 +79,14 @@ Our addition, **not the paper's setup**: the paper's BCP runs give no method tex
 questions, same `bcp.yaml` settings, same substring grader.
 
 - Tools now wrap every output in `<<<R0007 BEGIN ... R0007 END>>>` (unique anchor per result).
-- Method text ([`infra/bcp/skill/bcp_search_clm/SKILL.md`](../../infra/bcp/skill/bcp_search_clm/SKILL.md)),
+- Method text ([`infra/bcp/skill/bcp_search_clm/SKILL.md`](../../../infra/bcp/skill/bcp_search_clm/SKILL.md)),
   modelled on the paper's KV recipe: one `python3` heredoc per result that writes a one-line
   note to `/app/notes.md`, moves the block to `/tmp/ctx_offload/`, replaces it with the note,
   `&& search` next. Plus: write a provisional `/app/answer.md` as soon as there is a candidate.
 - **v2**: method text in the skill's SKILL.md (system prompt). `BCP_SKILL=bcp_search_clm`.
 - **v3**: same method text inserted into the task instruction before `## Output`, as
   ContextBench places its method section; skill = tools only. `BCP_SKILL=bcp_search_ids
-  BCP_TASKS=bcp_tasks_v3` (built by [`infra/bcp/make_v3_tasks.py`](../../infra/bcp/make_v3_tasks.py)).
+  BCP_TASKS=bcp_tasks_v3` (built by [`infra/bcp/make_v3_tasks.py`](../../../infra/bcp/make_v3_tasks.py)).
 
 | QID | v1 (as configured) | v2 (method in system prompt) | v3 (method in instruction) |
 |---|---|---|---|

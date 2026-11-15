@@ -1,9 +1,9 @@
 # M2 results: ContextBench KV Store, Qwen3.5-4B + skill=clm
 
 Date: 2026-11-14, 18:23–18:53 UTC. Status: **done** (8/8 trials).
-Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md) (M2).
-Raw trials: `runs/m2-kv-clm/trials/` (gitignored). Per-trial table: [`figs/m2-kv.md`](figs/m2-kv.md).
-Plot: [`figs/m2-kv.png`](figs/m2-kv.png). Utilization: `runs/logs/util-bcp-smoke-m2.csv`.
+Plan: [`../instruction-reimplementation.md`](../../instruction-reimplementation.md) (M2).
+Raw trials: `runs/m2-kv-clm/trials/` (gitignored). Per-trial table: [`figs/m2-kv.md`](../figs/m2-kv.md).
+Plot: [`figs/m2-kv.png`](../figs/m2-kv.png). Utilization: `runs/logs/util-bcp-smoke-m2.csv`.
 Ran concurrently with the BCP smoke test on the same vLLM server.
 
 ## Setup (control unless marked)
@@ -20,7 +20,7 @@ Ran concurrently with the BCP smoke test on the same vLLM server.
 
 ## Results
 
-![M2 KV](figs/m2-kv.png)
+![M2 KV](../figs/m2-kv.png)
 
 | Level | Pressure | seed 42 | seed 43 | offload edits | peak ctx (tokens) | wall time |
 |---|---|---|---|---|---|---|

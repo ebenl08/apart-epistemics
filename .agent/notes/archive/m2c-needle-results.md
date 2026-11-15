@@ -1,7 +1,7 @@
 # M2c results: ContextBench Needle Retention, Qwen3.5-4B + skill=clm
 
 Date: 2026-11-14, 18:52–19:50 UTC. Status: **done** (8/8 trials).
-Raw trials: `runs/m2c-needle-clm/trials/` (gitignored). Per-trial table: [`figs/m2c-needle.md`](figs/m2c-needle.md).
+Raw trials: `runs/m2c-needle-clm/trials/` (gitignored). Per-trial table: [`figs/m2c-needle.md`](../figs/m2c-needle.md).
 Ran concurrently with LogTriage (M2b) and the BCP 50-question run on one vLLM server.
 
 ## Setup (control unless marked)
@@ -15,7 +15,7 @@ Ran concurrently with LogTriage (M2b) and the BCP 50-question run on one vLLM se
 
 ## Results
 
-![Needle](figs/m2c-needle.png)
+![Needle](../figs/m2c-needle.png)
 
 | Level | Pressure | seed 42 | seed 43 | ops (s42 / s43) | anchor `h` in last edit (s42 / s43) |
 |---|---|---|---|---|---|

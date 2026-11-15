@@ -1,8 +1,8 @@
 # BCP 50 questions: Qwen3.5-4B + our method text (v3)
 
 Date: 2026-11-14, 19:02–19:37 UTC (35 min, 8 concurrent). Status: **done** (50/50).
-Plan: [`../instruction-reimplementation.md`](../instruction-reimplementation.md) (M4).
-Raw trials: `runs/bcp50-v3/trials/` (gitignored). Per-question table: [`figs/bcp50-v3.md`](figs/bcp50-v3.md).
+Plan: [`../instruction-reimplementation.md`](../../instruction-reimplementation.md) (M4).
+Raw trials: `runs/bcp50-v3/trials/` (gitignored). Per-question table: [`figs/bcp50-v3.md`](../figs/bcp50-v3.md).
 Smoke and variant choice: [`bcp-smoke-results.md`](bcp-smoke-results.md).
 
 ## Setup (control unless marked)
@@ -22,7 +22,7 @@ Smoke and variant choice: [`bcp-smoke-results.md`](bcp-smoke-results.md).
 
 ## Results
 
-![BCP 50](figs/bcp50-v3.png)
+![BCP 50](../figs/bcp50-v3.png)
 
 **10 / 50 correct (20%)**, 12 answered, mean 5.3 min and 13.7 LM calls per question.
 

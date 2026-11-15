@@ -1,7 +1,7 @@
 # BCP 50 questions: Qwen3.5-9B + our method text (v3), vs 4B
 
 Date: 2026-11-14, 21:04–22:24 UTC (80 min, 10 concurrent). Status: **done** (50/50).
-Raw trials: `runs/bcp50-v3-9b/trials/` (gitignored). Per-question table: [`figs/bcp50-v3-9b.md`](figs/bcp50-v3-9b.md).
+Raw trials: `runs/bcp50-v3-9b/trials/` (gitignored). Per-question table: [`figs/bcp50-v3-9b.md`](../figs/bcp50-v3-9b.md).
 4B run (same setup): [`bcp50-v3-results.md`](bcp50-v3-results.md).
 
 ## Setup
@@ -13,7 +13,7 @@ our v3 method text in the instruction, substring grader, no judge), except
 
 ## Results
 
-![BCP 9B](figs/bcp50-v3-9b.png)
+![BCP 9B](../figs/bcp50-v3-9b.png)
 
 | | 4B | 9B |
 |---|---|---|

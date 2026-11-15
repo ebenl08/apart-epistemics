@@ -2,9 +2,9 @@
 
 Date: 2026-11-14. 4B part: 18:46–19:22 UTC. 9B part: 19:54–20:15 UTC. Status: **done**.
 Raw trials: `runs/smoke-{4b,9b}-{none,clm}/trials/` (gitignored).
-Per-trial table (both models): [`figs/smoke-grid.md`](figs/smoke-grid.md).
+Per-trial table (both models): [`figs/smoke-grid.md`](../figs/smoke-grid.md).
 
-![Smoke grid, 4B and 9B](figs/smoke-grid.png)
+![Smoke grid, 4B and 9B](../figs/smoke-grid.png)
 
 ## Setup (control unless marked)
 

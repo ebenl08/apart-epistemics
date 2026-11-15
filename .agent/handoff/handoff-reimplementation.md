@@ -20,18 +20,19 @@ User's overnight brief (18:45 UTC): run as many ContextBench evals as possible, 
 smoke 4B/9B × skill none/clm, skip Sudoku if still problematic, write results + analysis +
 plot after every run and commit, watch disk, push when done.
 
-Results (all in `.agent/notes/`, each with a plot in `figs/`, all committed):
+All results in one file: [`m2-bcp-results.md`](../notes/m2-bcp-results.md). The per-run notes
+below are archived in `.agent/notes/archive/`; plots and per-trial tables in `.agent/notes/figs/`.
 
 | Run | Note | Headline |
 |---|---|---|
-| Smoke grid 4B + 9B × none/clm | [`smoke-grid-results.md`](../notes/smoke-grid-results.md) | no-skill hits the wall on KV/LogTriage at 0.5x; 9B+clm 1.0 on all three |
-| KV 4B + clm | [`m2-kv-results.md`](../notes/m2-kv-results.md) | seeds 42/43: 189/192, 1.0 up to 24x; seeds 44/45: R4000 0/0 (residue wall) |
-| KV 4B vs 9B, 4 seeds at R1000+ | [`m2-kv-9b-results.md`](../notes/m2-kv-9b-results.md) | R1000 1.00 vs 0.74, R4000 0.50 vs 0.56, R16000 1.00 vs 0.00; budget wall 2/12 vs 8/12 |
-| LogTriage 4B / 9B + clm | [`m2b-logtriage-results.md`](../notes/m2b-logtriage-results.md), [`m2b-logtriage-9b-results.md`](../notes/m2b-logtriage-9b-results.md) | 4B 0.87, 9B 0.31 |
-| Needle 4B / 9B + clm | [`m2c-needle-results.md`](../notes/m2c-needle-results.md), [`m2c-needle-9b-results.md`](../notes/m2c-needle-9b-results.md) | 4B 0.51 (wrong anchor deletes needles), 9B 0.72 |
-| BCP smoke + variants | [`bcp-smoke-results.md`](../notes/bcp-smoke-results.md) | as configured 0/5; our method text in the instruction (v3) 2/5 |
-| BCP 50 q, 4B, v3 | [`bcp50-v3-results.md`](../notes/bcp50-v3-results.md) | 10/50 (9/19 when it edited, 1/31 when not) |
-| BCP 50 q, 9B, v3 | [`bcp50-v3-9b-results.md`](../notes/bcp50-v3-9b-results.md) | 12/50 strict, 13 after hand check; edits in 70% of trials |
+| Smoke grid 4B + 9B × none/clm | [`smoke-grid-results.md`](../notes/archive/smoke-grid-results.md) | no-skill hits the wall on KV/LogTriage at 0.5x; 9B+clm 1.0 on all three |
+| KV 4B + clm | [`m2-kv-results.md`](../notes/archive/m2-kv-results.md) | seeds 42/43: 189/192, 1.0 up to 24x; seeds 44/45: R4000 0/0 (residue wall) |
+| KV 4B vs 9B, 4 seeds at R1000+ | [`m2-kv-9b-results.md`](../notes/archive/m2-kv-9b-results.md) | R1000 1.00 vs 0.74, R4000 0.50 vs 0.56, R16000 1.00 vs 0.00; budget wall 2/12 vs 8/12 |
+| LogTriage 4B / 9B + clm | [`m2b-logtriage-results.md`](../notes/archive/m2b-logtriage-results.md), [`m2b-logtriage-9b-results.md`](../notes/archive/m2b-logtriage-9b-results.md) | 4B 0.87, 9B 0.31 |
+| Needle 4B / 9B + clm | [`m2c-needle-results.md`](../notes/archive/m2c-needle-results.md), [`m2c-needle-9b-results.md`](../notes/archive/m2c-needle-9b-results.md) | 4B 0.51 (wrong anchor deletes needles), 9B 0.72 |
+| BCP smoke + variants | [`bcp-smoke-results.md`](../notes/archive/bcp-smoke-results.md) | as configured 0/5; our method text in the instruction (v3) 2/5 |
+| BCP 50 q, 4B, v3 | [`bcp50-v3-results.md`](../notes/archive/bcp50-v3-results.md) | 10/50 (9/19 when it edited, 1/31 when not) |
+| BCP 50 q, 9B, v3 | [`bcp50-v3-9b-results.md`](../notes/archive/bcp50-v3-9b-results.md) | 12/50 strict, 13 after hand check; edits in 70% of trials |
 
 Key finding: **4B and 9B have complementary CLM failures.** The 4B executes literal recipes
 (KV, LogTriage) for hundreds of turns more often than not, but garbles intricate ones (Needle

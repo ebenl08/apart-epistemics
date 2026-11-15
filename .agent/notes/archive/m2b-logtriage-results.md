@@ -1,7 +1,7 @@
 # M2b results: ContextBench LogTriage, Qwen3.5-4B + skill=clm
 
 Date: 2026-11-14, 18:52–19:52 UTC. Status: **done** (8/8 trials).
-Raw trials: `runs/m2b-logtriage-clm/trials/` (gitignored). Per-trial table: [`figs/m2b-logtriage.md`](figs/m2b-logtriage.md).
+Raw trials: `runs/m2b-logtriage-clm/trials/` (gitignored). Per-trial table: [`figs/m2b-logtriage.md`](../figs/m2b-logtriage.md).
 Ran concurrently with Needle (M2c) and the BCP 50-question run on one vLLM server.
 
 ## Setup (control unless marked)
@@ -15,7 +15,7 @@ Ran concurrently with Needle (M2c) and the BCP 50-question run on one vLLM serve
 
 ## Results
 
-![LogTriage](figs/m2b-logtriage.png)
+![LogTriage](../figs/m2b-logtriage.png)
 
 | Level | Pressure | seed 42 | seed 43 | offload edits | peak ctx | wall time |
 |---|---|---|---|---|---|---|

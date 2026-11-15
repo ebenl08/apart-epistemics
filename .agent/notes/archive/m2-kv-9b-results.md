@@ -3,7 +3,7 @@
 Date: 2026-11-14, 19:54–20:35 UTC; extra seeds 44/45 (both models, R1000+) 20:34–22:49 UTC.
 Status: **done** (8 + 6 trials per model).
 Raw trials: `runs/m2-kv-9b-clm/trials/`, `runs/m2-kv-{9b-,}clm-s4445/trials/` (gitignored). Per-trial table (both models):
-[`figs/m2-kv-4b-vs-9b.md`](figs/m2-kv-4b-vs-9b.md). 4B run: [`m2-kv-results.md`](m2-kv-results.md).
+[`figs/m2-kv-4b-vs-9b.md`](../figs/m2-kv-4b-vs-9b.md). 4B run: [`m2-kv-results.md`](m2-kv-results.md).
 Ran concurrently with the 9B smoke grid and the 9B LogTriage / Needle runs.
 
 ## Setup
@@ -14,7 +14,7 @@ nudges, T=0.7; levels R260 / R1000 / R4000 / R16000; seeds 42 / 43; proot), exce
 
 ## Results
 
-![KV 4B vs 9B](figs/m2-kv-4b-vs-9b.png)
+![KV 4B vs 9B](../figs/m2-kv-4b-vs-9b.png)
 
 | Level | Pressure | 9B s42 | 9B s43 | 4B s42 | 4B s43 | 9B end (s42 / s43) |
 |---|---|---|---|---|---|---|

@@ -2,7 +2,7 @@
 
 Date: 2026-11-14, 20:08–21:10 UTC. Status: **done** (8/8 trials).
 Raw trials: `runs/m2c-needle-9b-clm/trials/` (gitignored). Per-trial table (both models):
-[`figs/m2c-needle-4b-vs-9b.md`](figs/m2c-needle-4b-vs-9b.md). 4B run: [`m2c-needle-results.md`](m2c-needle-results.md).
+[`figs/m2c-needle-4b-vs-9b.md`](../figs/m2c-needle-4b-vs-9b.md). 4B run: [`m2c-needle-results.md`](m2c-needle-results.md).
 
 ## Setup
 
@@ -11,7 +11,7 @@ K8-C60 / K2-C192, seeds 42 / 43, proot), except **vary: model = Qwen3.5-9B**.
 
 ## Results
 
-![Needle 4B vs 9B](figs/m2c-needle-4b-vs-9b.png)
+![Needle 4B vs 9B](../figs/m2c-needle-4b-vs-9b.png)
 
 | Level | Pressure | 9B s42 | 9B s43 | 4B s42 | 4B s43 | 9B end (ops reached) |
 |---|---|---|---|---|---|---|

@@ -2,7 +2,7 @@
 
 Date: 2026-11-14, 20:08–21:22 UTC. Status: **done** (8/8 trials).
 Raw trials: `runs/m2b-logtriage-9b-clm/trials/` (gitignored). Per-trial table (both models):
-[`figs/m2b-logtriage-4b-vs-9b.md`](figs/m2b-logtriage-4b-vs-9b.md). 4B run: [`m2b-logtriage-results.md`](m2b-logtriage-results.md).
+[`figs/m2b-logtriage-4b-vs-9b.md`](../figs/m2b-logtriage-4b-vs-9b.md). 4B run: [`m2b-logtriage-results.md`](m2b-logtriage-results.md).
 
 ## Setup
 
@@ -11,7 +11,7 @@ L6400 / L12800, seeds 42 / 43, proot), except **vary: model = Qwen3.5-9B**.
 
 ## Results
 
-![LogTriage 4B vs 9B](figs/m2b-logtriage-4b-vs-9b.png)
+![LogTriage 4B vs 9B](../figs/m2b-logtriage-4b-vs-9b.png)
 
 | Level | Pressure | 9B s42 | 9B s43 | 4B s42 | 4B s43 | 9B failure |
 |---|---|---|---|---|---|---|
