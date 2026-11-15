@@ -1,4 +1,4 @@
-# M5 skill=none: 4B vs 9B (4 seeds)
+# M5 skill=none: 4B vs 9B vs 9B-RL (4 seeds)
 
 | family | model | skill | task | pressure | seed | reward | ops | edits | LM calls | peak ctx | min | end |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -34,6 +34,22 @@
 | kv_store | qwen35-9b | none | kv-store-R16000-seed45 | 23.87 | 45 | 0.000 | 5/184 | 0 | 5 | 27966 | 1.2 | budget_wall |
 | kv_store | qwen35-9b | none | kv-store-R16000-seed42 | 23.88 | 42 | 0.000 | 4/184 | 0 | 18 | 29690 | 39.9 | budget_wall |
 | kv_store | qwen35-9b | none | kv-store-R16000-seed43 | 23.89 | 43 | 0.000 | 4/184 | 0 | 4 | 36830 | 14.7 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R260-seed44 | 0.41 | 44 | 0.458 | 15/27 | 0 | 23 | 25148 | 8.2 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R260-seed42 | 0.42 | 42 | 0.000 | 4/27 | 0 | 6 | 27985 | 13.5 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R260-seed43 | 0.42 | 43 | 0.000 | 2/27 | 0 | 5 | 26805 | 11.0 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R260-seed45 | 0.42 | 45 | 0.000 | 3/27 | 0 | 11 | 28055 | 12.0 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R1000-seed44 | 1.51 | 44 | 0.000 | 2/34 | 0 | 5 | 27133 | 12.6 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R1000-seed42 | 1.52 | 42 | 0.000 | 3/34 | 0 | 9 | 28274 | 13.4 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R1000-seed43 | 1.52 | 43 | 0.000 | 3/34 | 0 | 5 | 26989 | 13.1 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R1000-seed45 | 1.52 | 45 | 0.000 | 3/34 | 0 | 5 | 31991 | 16.2 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R4000-seed44 | 5.98 | 44 | 0.000 | 5/64 | 0 | 5 | 27267 | 1.3 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R4000-seed45 | 5.99 | 45 | 0.000 | 5/64 | 0 | 14 | 29542 | 2.0 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R4000-seed42 | 5.99 | 42 | 0.000 | 3/64 | 0 | 9 | 28237 | 13.6 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R4000-seed43 | 6.00 | 43 | 0.000 | 3/64 | 0 | 5 | 31581 | 18.6 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R16000-seed44 | 23.87 | 44 | 0.000 | 4/184 | 0 | 7 | 36976 | 19.1 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R16000-seed45 | 23.87 | 45 | 0.000 | 2/184 | 0 | 12 | 26430 | 15.8 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R16000-seed42 | 23.88 | 42 | 0.000 | 4/184 | 0 | 14 | 30330 | 8.3 | budget_wall |
+| kv_store | qwen35-9b-rl | none | kv-store-R16000-seed43 | 23.89 | 43 | 0.000 | 3/184 | 0 | 26 | 36653 | 20.5 | budget_wall |
 | log_triage | qwen35-4b | none | log-triage-L320-seed43 | 0.46 | 43 | 0.000 | 17/47 | 0 | 34 | 25748 | 29.6 | budget_wall |
 | log_triage | qwen35-4b | none | log-triage-L320-seed45 | 0.46 | 45 | 0.000 | 18/47 | 0 | 34 | 25996 | 28.9 | budget_wall |
 | log_triage | qwen35-4b | none | log-triage-L320-seed46 | 0.46 | 46 | 0.000 | 16/47 | 0 | 31 | 25215 | 29.7 | budget_wall |
@@ -66,3 +82,19 @@
 | log_triage | qwen35-9b | none | log-triage-L12800-seed42 | 15.73 | 42 | 0.000 | 5/262 | 0 | 10 | 24824 | 38.2 | budget_wall |
 | log_triage | qwen35-9b | none | log-triage-L12800-seed45 | 15.74 | 45 | 0.000 | 6/262 | 0 | 10 | 27866 | 41.0 | budget_wall |
 | log_triage | qwen35-9b | none | log-triage-L12800-seed43 | 15.74 | 43 | 0.000 | 5/262 | 0 | 15 | 30399 | 70.4 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L320-seed42 | 0.46 | 42 | 0.000 | 17/47 | 0 | 35 | 25056 | 13.0 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L320-seed43 | 0.46 | 43 | 0.000 | 19/47 | 0 | 18 | 25522 | 12.8 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L320-seed45 | 0.46 | 45 | 0.000 | 19/47 | 0 | 18 | 24856 | 11.7 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L320-seed44 | 0.46 | 44 | 0.917 | 45/47 | 1 | 111 | 23899 | 20.2 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L1600-seed43 | 2.15 | 43 | 0.000 | 19/139 | 0 | 18 | 24928 | 13.4 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L1600-seed42 | 2.15 | 42 | 0.000 | 17/139 | 0 | 33 | 24816 | 14.4 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L1600-seed45 | 2.15 | 45 | 0.000 | 32/139 | 0 | 31 | 24533 | 2.0 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L1600-seed44 | 2.16 | 44 | 0.000 | 67/139 | 2 | 68 | 24599 | 28.2 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L6400-seed44 | 7.88 | 44 | 0.000 | 11/143 | 0 | 10 | 27145 | 1.4 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L6400-seed45 | 7.88 | 45 | 0.000 | 7/143 | 0 | 6 | 30641 | 17.4 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L6400-seed42 | 7.89 | 42 | 0.000 | 5/143 | 0 | 10 | 24370 | 14.5 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L6400-seed43 | 7.89 | 43 | 0.000 | 11/143 | 0 | 10 | 27217 | 1.5 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L12800-seed44 | 15.72 | 44 | 0.000 | 7/262 | 0 | 6 | 31166 | 17.8 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L12800-seed42 | 15.73 | 42 | 0.000 | 5/262 | 0 | 10 | 26401 | 17.4 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L12800-seed45 | 15.74 | 45 | 0.000 | 7/262 | 0 | 6 | 28593 | 14.4 | budget_wall |
+| log_triage | qwen35-9b-rl | none | log-triage-L12800-seed43 | 15.74 | 43 | 0.000 | 11/262 | 0 | 10 | 27009 | 1.4 | budget_wall |

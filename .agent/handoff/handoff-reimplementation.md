@@ -7,6 +7,10 @@ Decisions: [`../decisions.md`](../decisions.md).
 
 ## Start here (next session)
 
+> **Superseded for the next experiment:** M6 (semantic entropy) starts from
+> [`handoff-semantic-entropy.md`](handoff-semantic-entropy.md). It has the current pod state (`f9a3dd720awllw` running the
+> `skill=none` 9B-RL arm), RunPod management, and the evidence so far. The notes below describe M5 as of its end.
+
 1. Read this file, then [`../notes/m5-seed-sweep-results.md`](../notes/m5-seed-sweep-results.md) (latest results).
 2. **Nothing is running.** M5 pod `ia4u423t1fi61l` (2×A40) is **stopped** (EXITED).
    - Restarting it keeps its container disk: venvs, 4B / 9B / 9B-RL weights, rootfs.
