@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path("/workspace/apart-epistemics")
-OUT = ROOT / "runs/m6-se"
+OUT = Path(os.environ.get("M6_OUT", ROOT / "runs/m6-se"))   # H3 conditions write elsewhere
 ROOTS = Path(os.environ.get("M6_ROOTS", "/root/m6roots"))   # container disk: proot on the volume is slow
 os.environ.setdefault("CHROOT_ROOT_DIR", str(ROOTS / "chroots"))
 K = 10

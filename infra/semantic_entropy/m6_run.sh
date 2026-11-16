@@ -2,7 +2,7 @@
 # M6 pipeline for one queue: replay all -> points -> sample (GPU, one trial at a time) || execute (CPU, as samples finish).
 # Usage: setsid nohup infra/semantic_entropy/m6_run.sh <q> [exec_parallel] > runs/logs/m6-<q>-driver.log 2>&1 < /dev/null &
 source /root/m6env.sh
-q=$1; P=${2:-6}; Q=runs/m6-se/queue-$q.txt; O=runs/m6-se; LG=runs/logs/m6-$q
+q=$1; P=${2:-6}; Q=runs/m6-se/queue-$q.txt; O=${M6_OUT:-runs/m6-se}; LG=runs/logs/m6-$q
 echo "$(date -u +%T) START $q ($(wc -l < $Q) trials)"
 xargs -P $P -I{} sh -c "$C replay {} 2>&1 | grep -v DEBUG" < $Q >> $LG-replay.log
 $C points $(cat $Q) >> $LG-replay.log 2>&1

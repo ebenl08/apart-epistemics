@@ -2,7 +2,7 @@
 # M6 checklist: per-stage done/total for the trials in runs/m6-se/queue-<q>.txt, GPU / CPU / vLLM, new errors.
 # Usage: infra/semantic_entropy/m6_status.sh <q>
 cd /workspace/apart-epistemics
-q=$1; Q=runs/m6-se/queue-$q.txt; O=runs/m6-se
+q=$1; Q=runs/m6-se/queue-$q.txt; O=${M6_OUT:-runs/m6-se}
 n=$(grep -c . $Q); st() { local c=0; for f in $(cat $Q); do s=$(basename $f .jsonl); [[ -e $O/$s$1 ]] && c=$((c+1)); done; echo $c; }
 pts=0; smp=0; for f in $(cat $Q); do s=$(basename $f .jsonl)
   [[ -f $O/$s.points.json ]] && pts=$((pts + $(python3 -c "import json;print(len(json.load(open('$O/$s.points.json'))))")))

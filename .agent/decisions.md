@@ -148,6 +148,7 @@ Both models answer with a fenced ```bash block (Llama: "THOUGHT: … ```bash …
 
 ## 2026-11-16 01:22 UTC — M5B pods stopped; fix approved in principle
 The two M5B pods sat idle with vLLM loaded from the gate failure (~18:45 UTC on 2026-11-15; the two M5B headings above should read 2026-11-15) until 01:22: ~6.7 h each, ~$8. Both are now stopped. Rule: stop pods whenever work halts. User: fix the format problem (fenced-bash → `bash` tool-call fallback parser, plus the Gemma same-role merge); config not yet confirmed. Optional Qwen 9B text-path control: 1 seed × 16 cells, ~45–60 min. Handoff: `.agent/handoff/handoff-m5b.md`.
+- 01:45 UTC: first vLLM start died silently during the flashinfer JIT build (no error, no OOM record; log kept as `runs/logs/vllm-m6-9brl.try1.log`). Relaunched by hand with the same flags; up at ~01:50, chain continued.
 
 ## 2026-11-16 — M5B fence parser built (local; not yet run)
 - User: one 2×A40 pod for both families (Gemma GPU 0 :8000/proxy :9000, Llama GPU 1 :8010/proxy :9010; 8001 is RunPod nginx). M6 later runs on these models, so the action format must replay exactly.
@@ -169,3 +170,21 @@ The two M5B pods sat idle with vLLM loaded from the gate failure (~18:45 UTC on 
 - Why: the harness's only action is the native `bash` tool. Llama 3.1 and Gemma 3 wrote text (THOUGHT + fences, or the mirror's `bash {…}` notation). Making them work needed a text parser, which is a format deviation from Qwen.
 - Deviations to report: the model set differs from the plan; Ministral has no thinking.
 - Old 2×A40 pod `ozaojga0i4g45e` could not restart (no free GPUs on its host); new pod `090hikvwfs22gk` (2×A40, $1.18/h). Try-2 data moved to `runs/m5b-try2-20261116/`. The M6 non-Qwen probe handoff was archived at the user's request.
+
+## 2026-11-16 ~04:00 UTC — M5B on pod `090hikvwfs22gk`: both smoke gates passed, `clm` running
+- Gemma 4 E4B: smoke gate passed with 169 native calls (KV R260 reward 0, 0/24 answered). `clm` started 03:45.
+- Ministral 3 8B needed three fixes, then passed with 161 calls (smoke KV R260 1.0, LT L320 0.96). `clm` started 03:59. The fixes:
+  1. The harness's `chat_template_kwargs` get a 400 in Mistral tokenizer mode, so `run_cb_trial.sh` sends `send_chat_template_kwargs=false` for `ministral*` (it has no thinking).
+  2. mistral-common 1.13 changed `get_lark_from_jinja` (new required `force_tool_names`), which vLLM 0.33.0 doesn't pass. Pinned `mistral-common==1.12.0` (pod + `setup_pod.sh`).
+  3. mistral-common rejects an assistant turn with empty content and no tool call, which the harness sends after an empty reply. The first `clm` attempt lost 10/30 trials to this. `lm_log_proxy.py` now drops those turns before forwarding, for `ministral*` only. The log keeps the request as sent, plus `dropped_empty_assistant`.
+- **Deviation to report:** Ministral doesn't see its own empty replies in context (Qwen and Gemma do). M6 replay on Ministral must drop them too.
+- Failed data on the volume: `runs/m5b-ministral-try{1,2,3}-20261116/`. Try 3 includes a stray `none` run that the killed chain started at 03:47.
+
+## 2026-11-16 ~12:30 UTC+8 — H3 (decision level) designed and queued
+User: after 9B-RL, update `m6-se-paper.md` / `m6-se-results.md`, then run steering or directional ablation.
+- Method: **directional ablation by weight orthogonalization** (Arditi et al. 2024, arXiv 2406.11717): W ← (I − d dᵀ) W for every residual-stream writer (embed_tokens, linear_attn.out_proj, self_attn.o_proj, mlp.down_proj; 65 matrices), so the edited model is a plain checkpoint served by vLLM. Chosen over additive steering because vLLM cannot add a vector to the residual stream without code changes, and HF generation is too slow here (no causal_conv1d).
+- Control: 9B base, the same 1409 decision points (replay/points copied from `runs/m6-se`), same per-point sampling seeds, K = 10, same labeller and SE. Baseline = the existing 9B SE.
+- Vary: model weights. `dom` = unit diff-of-means SE direction at TBG layer 20 (from `direction-m5-9b.npz`); `rand` = random unit direction (seed 0), same procedure (damage control).
+- Readouts: paired ΔSE per point (Wilcoxon) and per trial (bootstrap CI); shares of invalid / no_tool_call / error samples (to tell "less uncertain" from "broken"); agreement with the logged decision. Sanity: |h·d|/|h| per layer before/after on one prompt.
+- Not yet: task-level reward under ablation (full ContextBench trials, the stated H3 accuracy test). Decide after the decision-level result.
+- Code: `ablate.py`, `h3_chain.sh`, `h3_analyze.py`; `collect.py`/`m6_run.sh`/`m6_status.sh` take `M6_OUT`. Outputs `runs/m6-h3/{dom,rand}/`, `runs/m6-h3/h3-decision.md`.
