@@ -246,6 +246,35 @@ async def sample(log: Path, api: str, conc: int) -> None:
         (OUT / f"{log.stem}.samples.done").touch()
 
 
+async def topup(log: Path, api: str, conc: int, target: int = 10, cap: int = 40) -> None:
+    """Rejection sampling: add samples (new seeds per round) until each point has `target` samples with a valid
+    tool-call format (status ok), or `cap` samples in all. The first K samples stay first (the plain K = 10 set);
+    the analysis takes the first `target` format-valid ones. Rewrites <trial>.samples.jsonl; re-execute afterwards."""
+    import math
+    out = OUT / f"{log.stem}.samples.jsonl"
+    recs = {json.loads(x)["t"]: json.loads(x) for x in open(out)}
+    turns = load_turns(log)
+    sem = asyncio.Semaphore(conc)
+
+    async def one(k: int):
+        rec, rnd = recs[k], 1
+        while (ok := sum(s["status"] == "ok" for s in rec["samples"])) < target and len(rec["samples"]) < cap:
+            need = min(cap - len(rec["samples"]), max(2, math.ceil((target - ok) * 1.5)))
+            body = copy.deepcopy(turns[k].req)
+            body.update(n=need, logprobs=True,
+                        seed=int(hashlib.sha256(f"{log.stem}:{k}:r{rnd}".encode()).hexdigest()[:8], 16) % 2**31)
+            async with sem:
+                r = await asyncio.to_thread(post, api, body)
+            rec["samples"] += [parse_choice(c) for c in r["choices"]]
+            rnd += 1
+
+    await asyncio.gather(*(one(k) for k in recs))
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text("".join(json.dumps(recs[k]) + "\n" for k in sorted(recs)))
+    tmp.replace(out)
+    (OUT / f"{log.stem}.topup.done").touch()
+
+
 # ---------------------------------------------------------------- Pass 3: execute
 def data_files(root: Path) -> dict[str, bytes]:
     out = {}
@@ -392,7 +421,7 @@ def trial_meta(run: str, task: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["replay", "points", "sample", "execute", "turns"])
+    ap.add_argument("cmd", choices=["replay", "points", "sample", "topup", "execute", "turns"])
     ap.add_argument("logs", nargs="+", type=Path)
     ap.add_argument("--api", default="http://localhost:8010/v1")
     ap.add_argument("--conc", type=int, default=8)
@@ -409,6 +438,8 @@ def main() -> None:
             print(log.stem, len(choose_points(log)), "points")
         elif a.cmd == "sample":
             asyncio.run(sample(log, a.api, a.conc))
+        elif a.cmd == "topup":
+            asyncio.run(topup(log, a.api, a.conc))
         elif a.cmd == "execute":
             asyncio.run(execute(log))
 
