@@ -180,7 +180,7 @@ The two M5B pods sat idle with vLLM loaded from the gate failure (~18:45 UTC on 
 - **Deviation to report:** Ministral doesn't see its own empty replies in context (Qwen and Gemma do). M6 replay on Ministral must drop them too.
 - Failed data on the volume: `runs/m5b-ministral-try{1,2,3}-20261116/`. Try 3 includes a stray `none` run that the killed chain started at 03:47.
 
-## 2026-11-16 ~12:30 UTC+8 — H3 (decision level) designed and queued
+## 2026-11-16 ~11:55 UTC+8 (03:55 UTC) — H3 (decision level) designed and queued
 User: after 9B-RL, update `m6-se-paper.md` / `m6-se-results.md`, then run steering or directional ablation.
 - Method: **directional ablation by weight orthogonalization** (Arditi et al. 2024, arXiv 2406.11717): W ← (I − d dᵀ) W for every residual-stream writer (embed_tokens, linear_attn.out_proj, self_attn.o_proj, mlp.down_proj; 65 matrices), so the edited model is a plain checkpoint served by vLLM. Chosen over additive steering because vLLM cannot add a vector to the residual stream without code changes, and HF generation is too slow here (no causal_conv1d).
 - Control: 9B base, the same 1409 decision points (replay/points copied from `runs/m6-se`), same per-point sampling seeds, K = 10, same labeller and SE. Baseline = the existing 9B SE.
@@ -188,3 +188,4 @@ User: after 9B-RL, update `m6-se-paper.md` / `m6-se-results.md`, then run steeri
 - Readouts: paired ΔSE per point (Wilcoxon) and per trial (bootstrap CI); shares of invalid / no_tool_call / error samples (to tell "less uncertain" from "broken"); agreement with the logged decision. Sanity: |h·d|/|h| per layer before/after on one prompt.
 - Not yet: task-level reward under ablation (full ContextBench trials, the stated H3 accuracy test). Decide after the decision-level result.
 - Code: `ablate.py`, `h3_chain.sh`, `h3_analyze.py`; `collect.py`/`m6_run.sh`/`m6_status.sh` take `M6_OUT`. Outputs `runs/m6-h3/{dom,rand}/`, `runs/m6-h3/h3-decision.md`.
+- ~13:00 UTC+8: H3 gate relaxed (waits for the 9B-RL GPU stages only, not its CPU probe fit). User approved a second 1×A40 (`rckduvamr1vclf`, `clm-m6-h3-rand`, $0.59/h, same volume): pod 1 (`i2qg43j6zshuor`) runs `dom`, pod 2 runs `rand`, in parallel. `h3_chain.sh` takes the condition list; logs `runs/logs/h3-chain-{dom,rand}.log`. Why DoM, not the probe weights, is the intervention direction: the probe validates decodability (H2) and picks the layer; regularized LR weights on standardized features favour discriminative low-variance dimensions, and mass-mean directions are more causally implicated (Marks & Tegmark 2023, arXiv 2310.06824); cos(w, DoM) = 0.09 here.
