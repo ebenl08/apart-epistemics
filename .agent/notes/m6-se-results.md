@@ -219,3 +219,24 @@ layer-20 diff-of-means SE direction, `dom`; a random direction, `rand`), resampl
 same seeds; compare SE to the 9B baseline. Projection check: |h·d|/|h| ≤ 0.0006 at every layer after editing (before:
 0.07–0.16 for `dom`, ~0.008 for `rand`, so the random control removes much less of the residual stream).
 
+### H3 update 2026-11-16 ~16:20 UTC+8 (16-trial subset; λ = 0 still running)
+
+User: 2 trials per family × level (subset `queue-h3sub.txt`, 547 points), full ablation (λ = 0); λ = 0.5 because
+λ = 0 broke the tool-call format. Rejection sampling for λ = 0 running (pod 2). Table: [`figs/h3-sub-partial.md`](figs/h3-sub-partial.md).
+
+| condition | format failures | agree with logged | ΔSE plain (p) | ΔSE valid-only (p) | ΔSE per trial, valid-only [95% CI] |
+|---|---|---|---|---|---|
+| `rand` (16 trials) | 0.1% | 90% (base 90%) | −0.010 (0.79) | −0.004 (0.99) | −0.004 [−0.017, +0.007] |
+| `dom05` λ = 0.5 (16) | 0.1% | 90% | **−0.048 (0.004)** | **−0.062 (0.0001)** | −0.053 [−0.090, −0.021] |
+| `dom` λ = 0 (13 so far) | 48% | 25% | +0.720 (1e-52) | +0.172 (1e-8) | +0.162 [+0.118, +0.203] |
+
+- **λ = 0.5 keeps the format intact and lowers SE** (baseline 0.242 → 0.194 bits on these points); per-trial CI
+  excludes 0 for valid-only SE, not for plain (−0.041 [−0.087, +0.003]).
+- **The λ = 0.5 effect is family-specific:** LogTriage SE falls at every level (L320 −0.05, L1600 −0.16, L6400 −0.10,
+  L12800 −0.10); KV rises slightly at every level (+0.01 to +0.04).
+- **λ = 0 is off-distribution:** half the samples lose the tool-call format; among valid samples SE rises.
+- Non-monotonic dose response (λ 0.5: down; λ 0: up, with format collapse). A λ > 1 (amplify) condition would test
+  whether SE rises when the direction is strengthened; not run.
+- Bug: `h3_sub.sh`'s rejection-sampling stage used `$R`, which `m6env.sh` overwrites, so it ran on the wrong directory
+  and did nothing (no files written). Replaced by `h3_rs.sh`.
+

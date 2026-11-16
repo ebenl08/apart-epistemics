@@ -37,6 +37,8 @@ def load(d: Path, trials: set[str] | None, prefix: str = "m5-9b") -> pd.DataFram
     rows = [json.loads(x) for f in sorted(glob.glob(str(d / f"{prefix}__*.jsonl")))
             if not f.endswith(".samples.jsonl") for x in open(f)]
     df = pd.DataFrame(rows)
+    if df.empty:
+        return df
     if trials is not None:
         df = df[df.trial.isin(trials)]
     df = df.set_index(["trial", "t"])
@@ -69,6 +71,9 @@ def main() -> None:
     tests = []
     for c in conds:
         df = load(ROOT / "m6-h3" / c, trials)
+        if df.empty:
+            print(f"{c}: no results yet")
+            continue
         rows[c] = summary(df)
         for col, name in (("se_plain", "plain K = 10"), ("se_valid", "valid only"), ("se_rs", "rejection-sampled")):
             j = base[[col]].join(df[[col]], rsuffix="_c", how="inner").dropna()
