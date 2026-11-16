@@ -53,6 +53,48 @@ def boot_ci(f, n, B=2000):
     return (float(np.percentile(vals, 2.5)), float(np.percentile(vals, 97.5))) if vals else (np.nan, np.nan)
 
 
+def ci95(v, B=2000) -> tuple[float, float]:
+    """(below, above) the mean: 95% bootstrap percentile CI of the mean. Stays inside the data range,
+    unlike a t-interval, which matters for bounded, bimodal rewards with n = 4-6."""
+    v = np.asarray(v, float)
+    if len(v) < 2:
+        return 0.0, 0.0
+    m = np.random.default_rng(0).choice(v, (B, len(v))).mean(1)
+    lo, hi = np.percentile(m, [2.5, 97.5])
+    return float(v.mean() - lo), float(hi - v.mean())
+
+
+def plot_trials(T: pd.DataFrame, outdir: Path, prefix: str) -> None:
+    """Per-level mean SE and reward with 95% CI over trials; reward vs SE scatter."""
+    fig, ax = plt.subplots(1, 3, figsize=(15, 4.2))
+    for k, (fam, mk) in enumerate((("kv-store", "o"), ("log-triage", "s"))):
+        g = T[T.family == fam].groupby("level")
+        x = np.arange(4) + (k - .5) * .08          # small dodge so the bars do not overlap
+        for a, col in ((ax[0], "mean_se"), (ax[1], "reward")):
+            m = [g.get_group(l)[col].mean() for l in LEVELS[fam]]
+            e = np.array([ci95(g.get_group(l)[col]) for l in LEVELS[fam]]).T
+            a.errorbar(x, m, yerr=e, marker=mk, capsize=4, label=fam)
+    for a, t in ((ax[0], "mean trial SE (bits), 95% CI"), (ax[1], "mean reward, 95% CI")):
+        a.set_xticks(range(4)); a.set_xticklabels(["lvl1", "lvl2", "lvl3", "lvl4"]); a.set_title(t); a.legend()
+    sc = ax[2].scatter(T.mean_se, T.reward, c=[LEVELS[f].index(l) for f, l in zip(T.family, T.level)],
+                       cmap="viridis", s=[40 if w else 20 for w in T.wall])
+    ax[2].set_xlabel("trial mean SE (bits)"); ax[2].set_ylabel("reward"); ax[2].set_title("reward vs SE (colour = level, big = wall)")
+    plt.colorbar(sc, ax=ax[2])
+    fig.tight_layout(); fig.savefig(outdir / f"m6-se-{prefix}.png", dpi=120)
+
+
+def plot_fill(P: pd.DataFrame, outdir: Path, prefix: str) -> None:
+    """Point SE vs fill, with mean SE ± 95% CI per 0.1 fill bin on top."""
+    fig, a = plt.subplots(figsize=(6, 4))
+    a.scatter(P.fill, P.se_bits, s=6, alpha=.3, color="grey")
+    b = (P.fill * 10).clip(upper=9.999).astype(int)
+    g = P.groupby(b).se_bits
+    a.errorbar(g.mean().index / 10 + .05, g.mean(), yerr=np.array(g.apply(ci95).tolist()).T, color="C0", marker="o", capsize=4,
+               label="bin mean, 95% CI")
+    a.set_xlabel("context fill"); a.set_ylabel("point SE (bits)"); a.legend()
+    a.set_title("point SE vs context fill"); fig.tight_layout(); fig.savefig(outdir / f"m6-se-fill-{prefix}.png", dpi=120)
+
+
 def wall_of(trial: str) -> bool:
     run, task = trial.split("__")
     p = Path("/workspace/apart-epistemics/runs") / run / "trials" / task / "result.json"
@@ -136,23 +178,9 @@ def main() -> None:
               f"- Harmful-edit AUROC ≥ 0.65: **{harm_auc >= .65}** ({harm_auc:.3f})",
               f"- **Decision: {'GO' if go else 'NO-GO'}**", ""]
 
-    # --- plots
-    fig, ax = plt.subplots(1, 3, figsize=(15, 4.2))
-    for fam, mk in (("kv-store", "o"), ("log-triage", "s")):
-        c = cell[cell.family == fam]
-        ax[0].plot(range(len(c)), c.mean_se, marker=mk, label=fam)
-        ax[1].plot(range(len(c)), c.reward, marker=mk, label=fam)
-    for a, t in ((ax[0], "mean trial SE (bits)"), (ax[1], "mean reward")):
-        a.set_xticks(range(4)); a.set_xticklabels(["lvl1", "lvl2", "lvl3", "lvl4"]); a.set_title(t); a.legend()
-    sc = ax[2].scatter(T.mean_se, T.reward, c=[LEVELS[f].index(l) for f, l in zip(T.family, T.level)],
-                       cmap="viridis", s=[40 if w else 20 for w in T.wall])
-    ax[2].set_xlabel("trial mean SE (bits)"); ax[2].set_ylabel("reward"); ax[2].set_title("reward vs SE (colour = level, big = wall)")
-    plt.colorbar(sc, ax=ax[2])
-    fig.tight_layout(); fig.savefig(outdir / f"m6-se-{prefix}.png", dpi=120)
-    fig, a = plt.subplots(figsize=(6, 4))
-    a.scatter(P.fill, P.se_bits, s=6, alpha=.4); a.set_xlabel("context fill"); a.set_ylabel("point SE (bits)")
-    a.set_title("point SE vs context fill"); fig.tight_layout(); fig.savefig(outdir / f"m6-se-fill-{prefix}.png", dpi=120)
-    lines += [f"Plots: `m6-se-{prefix}.png`, `m6-se-fill-{prefix}.png`.", ""]
+    plot_trials(T, outdir, prefix)
+    plot_fill(P, outdir, prefix)
+    lines += [f"Plots: `m6-se-{prefix}.png`, `m6-se-fill-{prefix}.png`. Error bars = 95% bootstrap CI of the mean.", ""]
     tr.to_csv(outdir / f"m6-se-trials-{prefix}.csv", index=False)
     (outdir / f"m6-se-{prefix}.md").write_text("\n".join(lines))
     print("\n".join(lines))

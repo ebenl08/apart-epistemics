@@ -220,3 +220,4 @@ User: after 9B-RL, update `m6-se-paper.md` / `m6-se-results.md`, then run steeri
 - User: paper relabels experiments: Experiment 1 = M5 reimplementation eliciting the pressure drop (M5 only, no M5B); Experiment 2 = correlation (H1); Experiment 3 = decodability (H2). Recorded in `handoff-m6-paper.md` and a note at the top of `m6-se-paper.md`.
 - ~18:45 UTC+8: `runs/` copied to the laptop (`runs/`, gitignored): 55,937 files, 7.92 GB, identical counts and bytes on both sides (volume `du` said 12 GB: block overhead). Pod 1 stopped; all three M6 pods stopped.
 - Decision-only SE methodology recorded: amendment section in `instruction-semantic-entropy.md`, scripts saved as `infra/semantic_entropy/decision_only.py` (h1/h2, as run on the pod), linked from `handoff-m6-paper.md`.
+- README.md written (narrative with Experiment 1–3 labels, H3 and other models marked WIP, reproduction guide, CLM acknowledgement and citation). Not committed yet (ask first).
