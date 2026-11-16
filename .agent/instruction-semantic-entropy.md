@@ -483,3 +483,26 @@ is under-powered.
 | 5 | Full run on all M5 trials; QA report written |
 | 6 | Part 2 analysis; go/no-go recorded in `decisions.md` |
 | 7 | (Go) Part 3 probe results in `notes/m6-probe-results.md` |
+
+---
+
+## Amendment (post-hoc, 2026-11-16): decision-only SE
+
+Not pre-registered; added after the full 9B and 9B-RL runs to answer "is SE just tool-use uncertainty?". The
+pre-registered SE stays the headline; this is a robustness analysis. Results: [`notes/m6-se-results.md`](notes/m6-se-results.md)
+("Is H1/H2 driven by tool-use uncertainty?"); paper §3.6, §5.7, §6.2; handoff [`handoff/handoff-m6-paper.md`](handoff/handoff-m6-paper.md).
+
+- **Motivation:** status outcomes (`invalid` = non-zero exit and no context change, `no_tool_call`,
+  `context_status`, `error`) are clusters in the outcome key (Part 1), so SE mixes *which context decision* with
+  *whether the command / tool call works*. At baseline 36% of SE > 0 points involve a status cluster (format
+  failures are only 0.2% of samples, so this is mostly failed commands).
+- **Decision-only SE** per point: discrete SE over the samples with status `ok` only; points with fewer than 2 `ok`
+  samples are dropped (NaN). Trial summary = mean over points.
+- **Status-only SE** per point: entropy of the status variable with every `ok` sample merged into one outcome
+  (`ok`, `invalid`, `no_tool_call`, …).
+- **Part 2 (H1) with these:** the same partial Spearman (rank-residualized on family × level, 2000 bootstrap
+  resamples over trials) and OLS `reward ~ x + C(family:level)` for each measure, plus a joint OLS with both.
+- **Part 3 (H2) with these:** TBG activations at a fixed layer (9B: 20, 9B-RL: 28, the layers the original probes
+  selected), same 5-fold GroupKFold by trial, logistic (C 0.05) for `> 0` targets and ridge (α 1000) for the
+  continuous target, standardized features; control = fill + turn index. Points with NaN decision-only SE dropped.
+- **Code:** `infra/semantic_entropy/decision_only.py` (`h1`, then `h2`).

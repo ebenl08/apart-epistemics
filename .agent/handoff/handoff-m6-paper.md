@@ -22,8 +22,8 @@ The paper relabels the milestones as three experiments. Use these names in the p
 | paper label | content | milestone | methodology | results source |
 |---|---|---|---|---|
 | **Experiment 1** | Reimplementation that elicits the performance drop under context pressure: `skill=clm` (8 seeds per cell) and the `skill=none` arm, 4B / 9B / 9B-RL on KV store and LogTriage at 4 pressure levels | **M5 only — do not include M5B** (Gemma / Llama / Ministral runs) | plan: [`../instruction-seed-sweep.md`](../instruction-seed-sweep.md); harness and baseline setup: [`../instruction-reimplementation.md`](../instruction-reimplementation.md), [`handoff-reimplementation.md`](handoff-reimplementation.md) | [`../notes/m5-seed-sweep-results.md`](../notes/m5-seed-sweep-results.md), plots `figs/m5-combined.png`, `figs/m5-none-progress.png`; summary in [`handoff-semantic-entropy.md`](handoff-semantic-entropy.md) § Evidence so far |
-| **Experiment 2** | Correlation: semantic entropy of context decisions predicts reward beyond pressure (H1), incl. 9B-RL replication and decision-only SE | M6 Part 2 | plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md) Part 1 (collection, [§](../instruction-semantic-entropy.md#part-1-collecting-semantic-entropy-step-by-step)) and Part 2 (analysis, [§](../instruction-semantic-entropy.md#part-2-correlation-analysis-h1)); as run: paper §3.1–3.7, §4 | this handoff; paper §5 (§5.1–5.7) |
-| **Experiment 3** | Decodability: linear probes read SE from the residual stream before generation (H2), incl. decision-only targets | M6 Part 3 | plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md) Part 3 ([§](../instruction-semantic-entropy.md#part-3-linear-probe-h2-only-on-go)); as run: paper §3.8 | this handoff; paper §6 (§6, 6.1, 6.2) |
+| **Experiment 2** | Correlation: semantic entropy of context decisions predicts reward beyond pressure (H1), incl. 9B-RL replication and decision-only SE | M6 Part 2 | plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md) Part 1 (collection, [§](../instruction-semantic-entropy.md#part-1-collecting-semantic-entropy-step-by-step)) and Part 2 (analysis, [§](../instruction-semantic-entropy.md#part-2-correlation-analysis-h1)); as run: paper §3.1–3.7, §4; **decision-only SE (post-hoc):** [amendment](../instruction-semantic-entropy.md#amendment-post-hoc-2026-11-16-decision-only-se), paper §3.6, code `infra/semantic_entropy/decision_only.py h1` | this handoff; paper §5 (§5.1–5.7) |
+| **Experiment 3** | Decodability: linear probes read SE from the residual stream before generation (H2), incl. decision-only targets | M6 Part 3 | plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md) Part 3 ([§](../instruction-semantic-entropy.md#part-3-linear-probe-h2-only-on-go)); as run: paper §3.8; **decision-only targets (post-hoc):** [amendment](../instruction-semantic-entropy.md#amendment-post-hoc-2026-11-16-decision-only-se), code `infra/semantic_entropy/decision_only.py h2` | this handoff; paper §6 (§6, 6.1, 6.2) |
 
 - Experiment 1 key numbers (from the M5 note): 9B reward falls with pressure (KV R260 → R16000: 0.95 → 0.12;
   LogTriage L320 → L6400: 0.83 → 0.18; trend z −2.84 / −3.27; 28/48 budget walls above 0.5×); the 4B does not
@@ -94,9 +94,11 @@ residual uncertainty still predicts failure, with a larger per-bit coefficient.
   predictable from context length (control AUROC 0.675); in 9B-RL it adds nothing.
 - **How to present:** keep the pre-registered SE as the headline (it was fixed in advance) and give decision-only SE
   as the robustness result that answers "is this just tool-use uncertainty?". Abstract already says this.
-- **Reproduce:** the scripts used are in the decision log (2026-11-16 ~17:30); the computation is short (split the
-  stored sample keys in `runs/m6-se/<trial>.jsonl` by status; probes at a fixed layer on `runs/m6-probe/*.npz`).
-  Not yet folded into `analyze.py` / `probe.py`.
+- **Methodology:** [`../instruction-semantic-entropy.md` § Amendment (post-hoc)](../instruction-semantic-entropy.md#amendment-post-hoc-2026-11-16-decision-only-se)
+  (definitions, tests, layers, controls); paper §3.6.
+- **Reproduce:** `infra/semantic_entropy/decision_only.py h1` then `h2` (run on the pod with clm-env; reads
+  `runs/m6-se/<trial>.jsonl` and `runs/m6-probe/*.npz`, also in the local `runs/` copy). Not yet folded into
+  `analyze.py` / `probe.py`.
 
 ## Corrections already made (do not reintroduce)
 
