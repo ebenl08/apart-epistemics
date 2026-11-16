@@ -1,0 +1,61 @@
+% Archived TikZ version of Figure 1 (replaced 2026-11-16 by figs/fig1.pdf, made on the design canvas;
+% source in figs/fig1-src/). Needs \usepackage{tikz},
+% \usetikzlibrary{positioning,arrows.meta,fit,calc,shapes.geometric} and \newcommand{\SE}{\mathrm{SE}}.
+\begin{figure}[!ht]
+  \centering
+  \begin{tikzpicture}[
+      font=\scriptsize,
+      box/.style={draw, rounded corners=2pt, align=center, minimum height=0.85cm, inner sep=3pt},
+      lm/.style={box, fill=blue!10},
+      ctx/.style={box, fill=orange!12},
+      disk/.style={box, fill=green!10},
+      stp/.style={box, fill=gray!8, text width=2.05cm},
+      arr/.style={-{Stealth[length=2mm]}, thick},
+      lab/.style={font=\tiny, align=center}
+    ]
+    % ---------------- Panel (a): CLM loop ----------------
+    \node[font=\small\bfseries, anchor=west] at (-0.2,2.05) {(a) The CLM loop};
+    \node[lm, text width=2.3cm] (model) at (0.9,0.9) {Model\\[1pt]{\tiny one bash command per turn}};
+    \node[ctx, text width=2.6cm] (mirror) at (5.0,0.9) {Context mirror file\\[1pt]{\tiny \texttt{[[CTX\_TURN n]]} blocks}};
+    \node[disk, text width=2.3cm] (disk) at (5.0,-0.9) {Disk\\[1pt]{\tiny \texttt{/tmp/ctx\_offload/}}};
+    \node[box, text width=2.0cm, fill=gray!8] (harness) at (0.9,-0.9) {Harness\\[1pt]{\tiny edit gate, 32k budget}};
+    \node[box, text width=1.7cm, fill=yellow!15] (stream) at (8.3,-0.9) {Data stream\\[1pt]{\tiny 0.5$\times$--24$\times$ budget}};
+    \draw[arr] (model) -- node[lab, above] {command} node[lab, below] {keep / edit /\\offload / delete} (mirror);
+    \draw[arr] (mirror) -- node[lab, right] {offload} (disk);
+    \draw[arr] (disk.west) -- node[lab, above] {read back} (harness.east);
+    \draw[arr] (mirror.south west) to[bend left=10] (harness.north east);
+    \draw[arr] (harness) -- node[lab, left] {edited context\\as next prompt} (model);
+    \draw[arr] (stream) -- node[lab, above] {batches} (disk.east);
+    \node[lab, text=red!70!black] at (8.3,0.35) {context $\geq$ budget\\$\Rightarrow$ ``budget wall'':\\trial ends};
+
+    % ---------------- Panel (b): SE pipeline ----------------
+    \begin{scope}[yshift=-3.1cm]
+      \node[font=\small\bfseries, anchor=west] at (-0.2,0.8) {(b) Measuring decision uncertainty};
+      \node[stp] (log) at (0.9,0) {Logged trial\\{\tiny every LM call}};
+      \node[stp] (rep) at (3.35,0) {Byte-exact replay\\{\tiny rebuilds disk}};
+      \node[stp] (pt) at (5.8,0) {Decision point $t$\\{\tiny prompt $x_t$ + disk snapshot}};
+      \node[stp] (samp) at (8.25,0) {10 samples\\{\tiny same prompt, $T{=}0.7$}};
+      \node[stp] (exec) at (8.25,-1.55) {Execute each on its own disk copy};
+      \node[stp] (key) at (5.8,-1.55) {Outcome key per sample\\{\tiny per block: stay / edit / offload / delete; or status}};
+      \node[stp] (clu) at (3.35,-1.55) {Cluster equal keys\\{\tiny $p_c$ = share of samples}};
+      \node[stp, fill=orange!15] (se) at (0.9,-1.55) {$\SE_t=-\sum_c p_c\log_2 p_c$};
+      \draw[arr] (log) -- (rep);
+      \draw[arr] (rep) -- (pt);
+      \draw[arr] (pt) -- (samp);
+      \draw[arr] (samp) -- (exec);
+      \draw[arr] (exec) -- (key);
+      \draw[arr] (key) -- (clu);
+      \draw[arr] (clu) -- (se);
+      \node[stp, fill=blue!10, text width=4.4cm] (probe) at (4.6,-2.85) {Linear probe on the residual stream at the last token of prompt $x_t$ (one forward pass, no sampling)};
+      \draw[arr, dashed] (probe.west) -| node[lab, pos=0.15, above left] {predicts $\SE_t>0$} (se.south);
+    \end{scope}
+  \end{tikzpicture}
+  \caption{\textbf{(a)} In a CLM, the model edits a mirror of its own transcript.
+  Each turn it issues one command that can keep, shorten, offload, or delete earlier blocks; the harness reads the edited mirror back as the next prompt.
+  When the context reaches the budget, the trial ends.
+  \textbf{(b)} Our measurement.
+  A logged trial is replayed exactly, and at each decision point ten replies are sampled from the identical prompt and executed in separate copies of the sandbox.
+  Samples with the same effect on the context form one cluster; semantic entropy is computed over clusters (Experiment~2).
+  A linear probe reads the same quantity from activations before generation (Experiment~3).}
+  \label{fig:schematic}
+\end{figure}
