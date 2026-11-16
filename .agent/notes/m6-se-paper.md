@@ -8,7 +8,7 @@ A context language model (CLM) agent manages its own context window. At each tur
 
 We replay 42 logged trials each from Qwen3.5-9B and an RL-trained variant (9B-RL) on two ContextBench task families (KV store, LogTriage) at four context-pressure levels. At 1409 (9B) and 1435 (9B-RL) decision points we draw 10 samples from the identical logged prompt. We execute each sampled command on a byte-exact reconstruction of the sandbox and cluster samples by their effect on the context. Discrete semantic entropy (SE) over these clusters measures decision uncertainty.
 
-Trial mean SE predicts lower reward at fixed pressure: partial Spearman ρ = −0.587, 95% CI [−0.775, −0.282] for the 9B, and ρ = −0.477 [−0.736, −0.094] for the 9B-RL. SE adds ΔR² = +0.26 (9B) and +0.19 (9B-RL) over pressure alone. RL training makes the model far more certain (mean SE falls by 60–80% per cell) and more accurate, but residual uncertainty still predicts failure. A linear probe on the residual stream at the last prompt token predicts SE > 0 with AUROC 0.741 (9B) and 0.818 (9B-RL), against 0.578 and 0.493 for a context-length baseline. Uncertainty about context management is therefore behaviourally consequential and represented internally before generation.
+Trial mean SE predicts lower reward at fixed pressure: partial Spearman ρ = −0.587, 95% CI [−0.775, −0.282] for the 9B, and ρ = −0.477 [−0.736, −0.094] for the 9B-RL. SE adds ΔR² = +0.26 (9B) and +0.19 (9B-RL) over pressure alone. RL training makes the model far more certain (mean SE falls by 60–80% per cell) and more accurate, but residual uncertainty still predicts failure. A linear probe on the residual stream at the last prompt token predicts SE > 0 with AUROC 0.741 (9B) and 0.818 (9B-RL), against 0.578 and 0.493 for a context-length baseline. Both results hold when SE is restricted to the context decision itself, excluding samples whose command failed or whose tool call was malformed: partial ρ = −0.496 (9B) and −0.446 (9B-RL), probe AUROC 0.766 and 0.809 against context-length baselines of 0.520 and 0.487. Uncertainty about context management is therefore behaviourally consequential and represented internally before generation.
 
 ## 1. Introduction
 
@@ -90,6 +90,11 @@ $$\mathrm{SE} = -\sum_{c} p_c \log_2 p_c$$
 
 SE ranges from 0 (all samples agree) to log₂ 10 = 3.32 bits (all differ). A trial's summary is its mean SE over points. This is discrete SE [2]: it needs cluster frequencies only, not log-probabilities. It is a total-uncertainty estimate and does not separate aleatoric from epistemic uncertainty.
 
+Because status outcomes (`invalid`, `no_tool_call`, `context_status`, `error`) are clusters too, SE mixes two kinds of uncertainty: which context decision the model makes, and whether its command or tool call works. We therefore also report two components per point:
+
+- **Decision-only SE:** SE over the samples with status `ok` only (points with fewer than two such samples are dropped). It measures uncertainty about the context decision alone.
+- **Status-only SE:** the entropy of the status variable, with all `ok` samples merged into one outcome. It measures uncertainty about whether the command or tool call succeeds.
+
 ### 3.7 Analysis (H1)
 
 The unit of analysis is the trial (n = 42). The pre-registered test is a partial Spearman correlation between trial mean SE and reward. It controls for family × pressure level by rank-residualizing both variables on level indicators. The 95% CI comes from 2,000 bootstrap resamples over trials. A secondary OLS regression is `reward ~ mean_SE + C(family:level)`. The pre-registered go criterion for H2 was partial |ρ| ≥ 0.3 with a CI excluding zero, or step-level AUROC ≥ 0.65.
@@ -159,6 +164,7 @@ In the regression `reward ~ mean_SE + C(family:level)`, the SE coefficient is �
 - **By turn type:** `context_edit_turn`s only ρ = −0.45; `context_stay_turn`s only ρ = −0.42.
 - **First half of each trial only** (points with turn index below half the trial's turns): ρ = −0.24. In OLS the SE coefficient is −1.29 (p = 0.028) when controlling for first-half fill, but p = 0.18 when controlling for whole-trial fill. Evidence that uncertainty precedes failure is therefore weak.
 - **Context length:** the Spearman correlation of point SE with fill is 0.20. SE is not mainly a proxy for context length (Figure 2).
+- **Decision-only SE** (Section 3.6): ρ = −0.496 [−0.731, −0.120]; see Section 5.7.
 
 ![Figure 2](figs/m6-se-fill-m5-9b.png)
 
@@ -217,6 +223,19 @@ Three differences stand out:
 - **Residual uncertainty still predicts failure.** The pre-registered test passes (GO), and each bit of mean SE costs more reward than in the 9B (coefficient −3.16 vs −2.02), although the SE range is narrow.
 - **No early signal.** SE in the first half of 9B-RL trials does not predict reward.
 
+### 5.7 Decision uncertainty versus tool-use uncertainty
+
+SE as defined in Section 3.6 also counts samples whose command failed (`invalid`) or whose tool call was malformed. In the 9B, 11% of points have at least one such sample (9B-RL: 4%); format failures alone are rare (0.2% of samples), so the status component is mostly about commands that fail. We split SE into its decision-only and status-only components and repeat the main test.
+
+| Partial ρ with reward, controlling for level [95% CI] | 9B | 9B-RL |
+| --- | --- | --- |
+| SE (as reported) | −0.587 [−0.775, −0.282] | −0.477 [−0.737, −0.099] |
+| **Decision-only SE** | **−0.496 [−0.731, −0.120]** | **−0.446 [−0.698, −0.063]** |
+| Status-only SE | −0.472 [−0.675, −0.218] | −0.287 [−0.618, +0.116] |
+| Both in one OLS with level: decision / status coefficient (p) | −1.50 (0.010) / −2.85 (0.004) | −5.59 (0.004) / +0.54 (0.82) |
+
+Trial mean SE and trial mean decision-only SE correlate at 0.93 (9B) and 0.91 (9B-RL). Uncertainty about the context decision alone predicts failure in both models. In the 9B, uncertainty about whether commands succeed is a second, partly independent predictor; in the 9B-RL it adds nothing.
+
 ## 6. Results: SE is linearly decodable (H2)
 
 A linear probe reads the SE of the coming decision from the residual stream before the model generates anything. γ* = 0 bits, and 30% of points have SE > 0.
@@ -253,6 +272,19 @@ The same probe on the 9B-RL's 1435 points gives a similar picture. Only 12% of i
 
 Whether SE is above zero is at least as decodable as in the 9B, again before generation (TBG > SLT), but the signal peaks later (layer 28 against 18–22). The continuous and fill-residualized scores are weaker, plausibly because non-zero SE is rarer. In the 9B-RL, context fill and turn index carry no information about SE at all (AUROC 0.49, Spearman 0.00).
 
+### 6.2 Decision-only targets
+
+We repeat the TBG probe at a fixed layer (20 for the 9B, 28 for the 9B-RL; same 5-fold GroupKFold by trial) with the targets of Section 5.7.
+
+| Target | 9B: activations / fill + turn index | 9B-RL: activations / fill + turn index |
+| --- | --- | --- |
+| SE > 0 (as reported) | 0.745 / 0.578 | 0.820 / 0.493 |
+| **Decision-only SE > 0** | **0.766 / 0.520** | **0.809 / 0.487** |
+| Status-only SE > 0 | 0.741 / 0.675 | 0.833 / 0.545 |
+| Decision-only SE (Spearman) | 0.433 / 0.048 | 0.347 / −0.006 |
+
+Decision uncertainty is decodable before generation at least as well as total SE, while the context-length baseline drops to chance. Uncertainty about command success is also decodable, but in the 9B it is partly predictable from context length alone (0.675).
+
 ## 7. Discussion and limitations
 
 **Interpretation.** At fixed pressure, trials whose context decisions are less consistent under resampling score lower, in both the 9B and the RL-trained 9B. The effect is not explained by context fill; whether it is present before failure is unclear (the first-half test depends on the fill control in the 9B and is null in the 9B-RL). RL training removes most decision uncertainty and raises reward, consistent with uncertainty being one route to failure, though the comparison of two checkpoints cannot isolate it. The same uncertainty is linearly encoded before generation. Together these suggest that context-management uncertainty is a measurable internal state that relates to failure. The results are correlational; they do not show that uncertainty causes failure.
@@ -266,16 +298,25 @@ Whether SE is above zero is at least as decodable as in the 9B, again before gen
 5. **Probe directions disagree.** At layer 20 the logistic direction and the difference-of-means direction are nearly orthogonal (cosine 0.09). Which direction is causally relevant is open.
 6. **One model family, one skill.** Results cover Qwen3.5-9B and its RL checkpoint with `skill=clm` only. The 4B and `skill=none` arms are not analysed here.
 7. **Total uncertainty.** SE does not separate aleatoric from epistemic uncertainty.
+8. **Two kinds of uncertainty in one number.** SE mixes context-decision and command-success uncertainty. The decision-only component reproduces H1 and H2 (Sections 5.7, 6.2), but the headline numbers include both.
 
 ## 8. Conclusion and next steps
 
 Semantic entropy over context-management decisions predicts task failure in a CLM agent beyond pressure level (partial ρ = −0.587 for the 9B, −0.477 for the 9B-RL), and a linear probe recovers it from the residual stream before generation (AUROC 0.741 and 0.818).
 
-**H3 (in progress).** We test causality by directional ablation [5]: the 9B's difference-of-means SE direction at layer 20 is projected out of every matrix that writes to the residual stream (the embedding and each layer's attention and MLP output; 65 matrices). The edited model is resampled at the same 1409 decision points with the same seeds, and its SE compared with the baseline. A random direction ablated the same way is the control. We use the difference-of-means direction rather than the probe weights because mass-mean directions tend to be more causally implicated than logistic-regression directions [6]; here the two are nearly orthogonal. After editing, the residual stream's component along the direction is ≤ 0.06% of its norm at every layer (before: 7–16%). The random direction carried only ~0.8% before editing, so it removes much less and is a weak control for damage; a variance-matched control may be needed.
+**H3 (preliminary).** We tested causality by directional ablation [5]: the 9B's difference-of-means SE direction at layer 20 is scaled in every matrix that writes to the residual stream (the embedding and each layer's attention and MLP output; 65 matrices), W ← (I + (λ − 1) d dᵀ) W, and the edited model is resampled at the same decision points with the same seeds. On a subset of 16 trials (two per family and level, 547 points):
+
+| Condition | Tool-call format failures | Δ decision-only SE vs baseline (Wilcoxon p) | Δ per trial [95% CI] |
+| --- | --- | --- | --- |
+| Random direction, λ = 0 (all 42 trials) | 0.2% | −0.007 (0.56) | −0.006 [−0.015, +0.003] |
+| SE direction, λ = 0.5 | 0.1% | −0.062 (0.0001) | −0.053 [−0.090, −0.021] |
+| SE direction, λ = 0 | ≈ 48% | +0.18 (1e-10) | +0.17 [+0.10, +0.26] |
+
+Halving the direction keeps tool use intact and makes context decisions slightly more consistent, an effect carried by LogTriage (KV moves slightly the other way). Removing it entirely breaks tool-call formatting in half of the samples; with rejection sampling to ten well-formed calls per point (9 trials), decision-only SE still rises (0.145 → 0.423 bits). These results are preliminary for three reasons: the direction is partly a context-length direction (cosine 0.45 with the fill direction; 31% of its squared norm lies in the span of fill, task family and turn type) and was built from SE that includes failed commands; the random control removes far less of the residual stream (projection spread 0.28 against 7.06); and the dose response is not monotonic. We use the difference-of-means direction rather than the probe weights because mass-mean directions tend to be more causally implicated [6]; here the probe direction also has almost no activation variance (spread 0.30), so ablating it would remove little.
 
 Next steps:
 
-1. Finish H3 at the decision level; if SE changes, test task reward with the ablated model on full trials.
+1. Rerun H3 with a direction built from decision-only SE on activations residualized for context fill, task and turn type, against a matched context-fill direction (λ = 0.5), then amplify (λ = 1.5) and test task reward.
 2. Build the ground-truth harmful-edit label (a deleted SET later queried) and repeat the step-level test.
 3. Extend to the 4B and `skill=none` arms.
 

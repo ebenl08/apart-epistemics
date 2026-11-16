@@ -267,3 +267,19 @@ Trial-level corr(SE, decision-only SE) = 0.93 (9B) / 0.91 (RL).
   p = 0.004) and is partly predictable from context length (fill+turn AUROC 0.675); in 9B-RL it adds nothing.
 - Report H1/H2 with decision-only SE as a robustness row; the headline numbers mix both components.
 
+### H3 final (2026-11-16 ~18:30 UTC+8; all runs stopped)
+
+Full table: [`figs/h3-sub-final.md`](figs/h3-sub-final.md). Causality handoff: `../handoff/handoff-m6-causality.md`.
+
+| condition (16-trial subset) | format failures | Δ decision-only SE (p) | per trial [95% CI] |
+|---|---|---|---|
+| `rand` (42 trials) | 0.2% | −0.007 (0.56) | −0.006 [−0.015, +0.003] |
+| `dom05` λ = 0.5 | 0.1% | **−0.062 (0.0001)** | −0.053 [−0.090, −0.021] |
+| `dom` λ = 0 (plain) | ~48% | +0.184 (1e-10) | +0.172 [+0.102, +0.259] |
+| `dom-rs` λ = 0, rejection-sampled (9 trials) | – | decision-only 0.145 → 0.423 (+0.28) | rs SE incl. failed commands +0.60 [+0.46, +0.72] |
+
+- λ = 0 rejection sampling stopped at 9 topped trials (user rule: stop at 8). 23 samples per point on average; 84% of
+  points reached 10 valid calls; 18% of valid calls fail.
+- The DoM direction is confounded (fill cos 0.45; 31% in span(fill, family, turn type); built on SE incl. failed
+  commands). Next: `../instruction-h3-clean.md` (cleaned direction + matched fill control), not yet approved.
+
