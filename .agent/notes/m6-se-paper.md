@@ -2,6 +2,8 @@
 
 M6 write-up, 9B and 9B-RL models (H3 in progress). Lab notes: [`m6-se-results.md`](m6-se-results.md). Plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md).
 
+> **Paper structure (decided 2026-11-16):** Experiment 1 = M5 reimplementation eliciting the performance drop under context pressure (M5 only, not M5B); Experiment 2 = correlation (H1, §5); Experiment 3 = decodability (H2, §6). This draft does not yet contain Experiment 1 or the relabelled headings; see `../handoff/handoff-m6-paper.md`.
+
 ## Abstract
 
 A context language model (CLM) agent manages its own context window. At each turn it decides which parts of its transcript to keep, cut, or offload to disk. We ask two questions. Does the model's uncertainty about these decisions predict task failure? Is that uncertainty linearly readable from its activations?

@@ -15,6 +15,28 @@ Date: 2026-11-16 (times UTC+8). For whoever writes or revises the paper. Causal 
 | Raw data (volume `hri0q37of4`; local copy in `runs/`, gitignored) | `runs/m6-se/` (per-point results, samples), `runs/m6-probe/` (activations `.npz`), `runs/m5-lmlog/` (logged LM calls), `runs/m5-9b{,-rl}/trials/` (rewards) |
 | Code | `infra/semantic_entropy/`: `entropy.py` (SE, labeller), `collect.py` (replay → sample → execute), `analyze.py` (H1), `probe.py` (H2), `m6_chain.sh` (unattended full run) |
 
+## Paper structure: experiment labels (decided by the user, 2026-11-16)
+
+The paper relabels the milestones as three experiments. Use these names in the paper, not M5 / M6 / H1 / H2.
+
+| paper label | content | milestone | source |
+|---|---|---|---|
+| **Experiment 1** | Reimplementation that elicits the performance drop under context pressure: `skill=clm` (8 seeds per cell) and the `skill=none` arm, 4B / 9B / 9B-RL on KV store and LogTriage at 4 pressure levels | **M5 only — do not include M5B** (Gemma / Llama / Ministral runs) | [`../notes/m5-seed-sweep-results.md`](../notes/m5-seed-sweep-results.md), plots `figs/m5-combined.png`, `figs/m5-none-progress.png`; summary in [`handoff-semantic-entropy.md`](handoff-semantic-entropy.md) § Evidence so far |
+| **Experiment 2** | Correlation: semantic entropy of context decisions predicts reward beyond pressure (H1), incl. 9B-RL replication and decision-only SE | M6 Part 2 | this handoff; paper §5 (§5.1–5.7) |
+| **Experiment 3** | Decodability: linear probes read SE from the residual stream before generation (H2), incl. decision-only targets | M6 Part 3 | this handoff; paper §6 (§6, 6.1, 6.2) |
+
+- Experiment 1 key numbers (from the M5 note): 9B reward falls with pressure (KV R260 → R16000: 0.95 → 0.12;
+  LogTriage L320 → L6400: 0.83 → 0.18; trend z −2.84 / −3.27; 28/48 budget walls above 0.5×); the 4B does not
+  (model × log₂ pressure interaction, 9B vs 4B: −0.49, p = 0.027); 9B-RL has the same slope as 9B at a higher level
+  (p = 0.68). The failure is context management (the budget wall), not retrieval. `skill=none`: 96/96 trials hit the
+  wall, 93/96 score 0. Four zero-reward trials are answer-format slips (listed in the M5 note).
+- Experiments 2 and 3 reuse Experiment 1's logged 9B and 9B-RL `skill=clm` trials (42 per model, a subset of the
+  M5 cells and seeds), so the paper should present Experiment 1 first as the source of the trials.
+- H3 (causality) is not one of the three experiments; if mentioned, present it as preliminary / future work
+  (see [`handoff-m6-causality.md`](handoff-m6-causality.md)).
+- The current draft `m6-se-paper.md` covers only Experiments 2 and 3 and still uses "H1 / H2" headings; it needs an
+  Experiment 1 section (from the M5 note) and the relabelling.
+
 ## One-paragraph summary
 
 We replay 42 logged ContextBench trials per model (Qwen3.5-9B and its RL checkpoint, `skill=clm`; KV store and
