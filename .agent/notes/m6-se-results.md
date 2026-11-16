@@ -240,3 +240,30 @@ User: 2 trials per family × level (subset `queue-h3sub.txt`, 547 points), full 
 - Bug: `h3_sub.sh`'s rejection-sampling stage used `$R`, which `m6env.sh` overwrites, so it ran on the wrong directory
   and did nothing (no files written). Replaced by `h3_rs.sh`.
 
+### Is H1/H2 driven by tool-use uncertainty? (check 2026-11-16 ~17:30 UTC+8)
+
+SE mixes two things: which context decision the model makes, and whether its command/format works (`invalid`,
+`no_tool_call`, … clusters). Split per point: **decision-only SE** = SE over `ok` samples (≥ 2 needed);
+**status-only SE** = entropy of {ok, invalid, no_tool_call, …}. Points with any failed/format sample: 9B 11%, RL 4%.
+Trial-level corr(SE, decision-only SE) = 0.93 (9B) / 0.91 (RL).
+
+| H1: partial ρ with reward \| level [95% CI] | 9B | 9B-RL |
+|---|---|---|
+| SE (as reported) | −0.587 [−0.775, −0.282] | −0.477 [−0.737, −0.099] |
+| decision-only SE | **−0.496 [−0.731, −0.120]** | **−0.446 [−0.698, −0.063]** |
+| status-only SE | −0.472 [−0.675, −0.218] | −0.287 [−0.618, +0.116] |
+| joint OLS (both + level): decision / status coef (p) | −1.50 (0.010) / −2.85 (0.004) | −5.59 (0.004) / +0.54 (0.82) |
+
+| H2: TBG probe, fixed layer (9B 20, RL 28), 5-fold by trial | 9B act. / fill+turn | 9B-RL act. / fill+turn |
+|---|---|---|
+| SE > 0 (AUROC) | 0.745 / 0.578 | 0.820 / 0.493 |
+| decision-only SE > 0 (AUROC) | **0.766 / 0.520** | **0.809 / 0.487** |
+| status-only SE > 0 (AUROC) | 0.741 / 0.675 | 0.833 / 0.545 |
+| decision-only SE (Spearman) | 0.433 / 0.048 | 0.347 / −0.006 |
+
+- **H1 and H2 hold on decision-only SE in both models**; context-decision uncertainty alone predicts failure and is
+  decodable before generation, with the context-length control at chance.
+- Tool-use uncertainty is a second, partly separate signal: in the 9B it predicts reward on its own (joint OLS
+  p = 0.004) and is partly predictable from context length (fill+turn AUROC 0.675); in 9B-RL it adds nothing.
+- Report H1/H2 with decision-only SE as a robustness row; the headline numbers mix both components.
+
