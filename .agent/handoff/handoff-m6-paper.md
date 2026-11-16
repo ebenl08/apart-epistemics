@@ -19,11 +19,11 @@ Date: 2026-11-16 (times UTC+8). For whoever writes or revises the paper. Causal 
 
 The paper relabels the milestones as three experiments. Use these names in the paper, not M5 / M6 / H1 / H2.
 
-| paper label | content | milestone | source |
-|---|---|---|---|
-| **Experiment 1** | Reimplementation that elicits the performance drop under context pressure: `skill=clm` (8 seeds per cell) and the `skill=none` arm, 4B / 9B / 9B-RL on KV store and LogTriage at 4 pressure levels | **M5 only — do not include M5B** (Gemma / Llama / Ministral runs) | [`../notes/m5-seed-sweep-results.md`](../notes/m5-seed-sweep-results.md), plots `figs/m5-combined.png`, `figs/m5-none-progress.png`; summary in [`handoff-semantic-entropy.md`](handoff-semantic-entropy.md) § Evidence so far |
-| **Experiment 2** | Correlation: semantic entropy of context decisions predicts reward beyond pressure (H1), incl. 9B-RL replication and decision-only SE | M6 Part 2 | this handoff; paper §5 (§5.1–5.7) |
-| **Experiment 3** | Decodability: linear probes read SE from the residual stream before generation (H2), incl. decision-only targets | M6 Part 3 | this handoff; paper §6 (§6, 6.1, 6.2) |
+| paper label | content | milestone | methodology | results source |
+|---|---|---|---|---|
+| **Experiment 1** | Reimplementation that elicits the performance drop under context pressure: `skill=clm` (8 seeds per cell) and the `skill=none` arm, 4B / 9B / 9B-RL on KV store and LogTriage at 4 pressure levels | **M5 only — do not include M5B** (Gemma / Llama / Ministral runs) | plan: [`../instruction-seed-sweep.md`](../instruction-seed-sweep.md); harness and baseline setup: [`../instruction-reimplementation.md`](../instruction-reimplementation.md), [`handoff-reimplementation.md`](handoff-reimplementation.md) | [`../notes/m5-seed-sweep-results.md`](../notes/m5-seed-sweep-results.md), plots `figs/m5-combined.png`, `figs/m5-none-progress.png`; summary in [`handoff-semantic-entropy.md`](handoff-semantic-entropy.md) § Evidence so far |
+| **Experiment 2** | Correlation: semantic entropy of context decisions predicts reward beyond pressure (H1), incl. 9B-RL replication and decision-only SE | M6 Part 2 | plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md) Part 1 (collection, [§](../instruction-semantic-entropy.md#part-1-collecting-semantic-entropy-step-by-step)) and Part 2 (analysis, [§](../instruction-semantic-entropy.md#part-2-correlation-analysis-h1)); as run: paper §3.1–3.7, §4 | this handoff; paper §5 (§5.1–5.7) |
+| **Experiment 3** | Decodability: linear probes read SE from the residual stream before generation (H2), incl. decision-only targets | M6 Part 3 | plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md) Part 3 ([§](../instruction-semantic-entropy.md#part-3-linear-probe-h2-only-on-go)); as run: paper §3.8 | this handoff; paper §6 (§6, 6.1, 6.2) |
 
 - Experiment 1 key numbers (from the M5 note): 9B reward falls with pressure (KV R260 → R16000: 0.95 → 0.12;
   LogTriage L320 → L6400: 0.83 → 0.18; trend z −2.84 / −3.27; 28/48 budget walls above 0.5×); the 4B does not
