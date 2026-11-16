@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import glob
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -20,7 +21,7 @@ import numpy as np
 ROOT = Path("/workspace/apart-epistemics")
 SE = ROOT / "runs/m6-se"
 OUT = ROOT / "runs/m6-probe"
-MODEL = "Qwen/Qwen3.5-9B"
+MODEL = os.environ.get("M6_MODEL", "Qwen/Qwen3.5-9B")  # 9B-RL: /root/models/clm-9b-rl/converted
 
 
 def points(prefix: str) -> list[dict]:

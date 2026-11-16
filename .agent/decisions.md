@@ -140,3 +140,8 @@ Both models answer with a fenced ```bash block (Llama: "THOUGHT: … ```bash …
 - Result: TBG probe AUROC 0.741 for SE > γ* (γ* = 0), Spearman 0.466; controls fill+turn 0.578 / 0.159, shuffled 0.483 / −0.033; SE residualized on fill 0.371. SLT weaker (0.648 / 0.331). H2 supported.
 - Logistic direction vs diff-of-means at layer 20: cos 0.09; both saved for H3.
 - Pod `obvrywyztadwv4` stopped (API v2 action stop). Volume keeps all outputs. 9B-RL not started: waits for the user after this report.
+
+## 2026-11-16 — M6 9B-RL launched (unattended chain)
+- User: should have run 9B-RL overnight without waiting; report tables in chat. Old pod `obvrywyztadwv4` could not restart (no free GPU on its host); new pod `i2qg43j6zshuor` (`clm-m6-se-rl`, 1×A40, $0.59/h, EU-SE-1, same volume). Old pod left stopped (not terminated).
+- Same protocol as 9B. Control: the same 42 cells/seeds (`queue-9b.txt` with prefix `m5-9b-rl`), K = 10, point rule, outcome key, sampling params from the logged requests. Vary: model = 9B-RL `rl-ckpt-livectx_dapo-iter44` @ ffc4aab2 served as `qwen35-9b-rl` (M5 flags), on :8010. Sampler `CONC=20`, single forward sampler (no reverse sampler).
+- New: `infra/semantic_entropy/m6_chain.sh` (serve → m6_run → analyze → probe dump/extract/fit), `m6env.sh` now in the repo (was pod-only), `probe.py` reads the weights path from `M6_MODEL`.
