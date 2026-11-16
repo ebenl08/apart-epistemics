@@ -10,7 +10,8 @@ apt-get update -qq && apt-get install -y -qq proot
 
 # Weights first (background): 4B + 9B on the container disk, not the volume (user: no need to persist).
 uv venv -q /root/envs/hf --python 3.12 && VIRTUAL_ENV=/root/envs/hf uv pip install -q "huggingface_hub[hf_transfer]"
-( export HF_HUB_ENABLE_HF_TRANSFER=1
+# SKIP_QWEN=1 for runs that serve other models (M5B downloads its own in infra/serve_m5b.sh).
+[[ -n "${SKIP_QWEN:-}" ]] || ( export HF_HUB_ENABLE_HF_TRANSFER=1
   /root/envs/hf/bin/hf download Qwen/Qwen3.5-4B && /root/envs/hf/bin/hf download Qwen/Qwen3.5-9B
   echo WEIGHTS_DONE ) > /root/hf_download.log 2>&1 &
 
