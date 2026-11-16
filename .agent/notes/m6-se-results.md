@@ -1,18 +1,22 @@
-# M6 semantic entropy of CLM context decisions: results (9B)
+# M6 semantic entropy of CLM context decisions: results (9B, 9B-RL; H3 running)
 
 Plan: [`../instruction-semantic-entropy.md`](../instruction-semantic-entropy.md). Decisions: [`../decisions.md`](../decisions.md).
 Code: `infra/semantic_entropy/` (`entropy.py`, `collect.py`, `m6_run.sh`, `m6_status.sh`, `analyze.py`).
-Pod `obvrywyztadwv4` (1×A40, $0.59/h, EU-SE-1). Outputs on the volume: `runs/m6-se/`, logs `runs/logs/m6-*.log`.
+Pods (1×A40, $0.59/h, EU-SE-1): 9B `obvrywyztadwv4`; 9B-RL + H3 `dom` `i2qg43j6zshuor`; H3 `rand` `rckduvamr1vclf`. Outputs on volume: `runs/m6-se/`, `runs/m6-probe/`, `runs/m6-h3/`. Logs: `runs/logs/m6-*.log`.
 
 ## Config
 
-**Control (M5, unchanged):** M5 `skill=clm` 9B trials (42 logged: KV R260 s44–49, KV R1000/R4000/R16000 s46–49,
-LogTriage 4 levels s44–49), `CB_SETTINGS=paper`, vLLM 0.33.0 BF16 prefix caching, rootfs
-`sha256:05a994d2…` (same as M5), sampling T 0.7 / top_p 0.95 / thinking on / max_tokens 8192 (the logged request body, resent as is).
+**Control (M5, unchanged):**
+- M5 `skill=clm` 9B trials, 42 logged: KV R260 s44–49, KV R1000/R4000/R16000 s46–49, LogTriage 4 levels s44–49.
+- `CB_SETTINGS=paper`, vLLM 0.33.0 BF16, prefix caching on.
+- Rootfs `sha256:05a994d2…` (same as M5).
+- Sampling = logged request body, resent as is: T 0.7, top_p 0.95, thinking on, max_tokens 8192.
 
-**New:** K = 10 samples per point (`n=10`, per-point seed), ≤ 40 points per trial (all `context_edit_turn`s +
-5 `context_stay_turn`s per fill bin, capped at 40), outcome = per-block stay/edit/offload/delete + clobber flag,
-or `invalid` / `no_tool_call` / `context_status` / `error`; discrete SE in bits.
+**New:**
+- K = 10 samples per point (`n=10`, per-point seed).
+- ≤ 40 points per trial: all `context_edit_turn`s + 5 `context_stay_turn`s per fill bin, cap 40.
+- Outcome = per-block stay/edit/offload/delete + clobber flag, or `invalid` / `no_tool_call` / `context_status` / `error`.
+- Discrete SE in bits.
 
 ## Milestones
 
@@ -26,6 +30,8 @@ or `invalid` / `no_tool_call` / `context_status` / `error`; discrete SE in bits.
 | 5 | Full 9B run + QA | **done: 42/42 trials, 1409 points, 14,090 samples, 0 errors, 0 prompt-token mismatches, Gate B 1397/1397** |
 | 6 | Part 2 analysis, go/no-go | **done: GO** (partial ρ = −0.59) |
 | 7 | Part 3 probe | **done: TBG probe AUROC 0.74 (controls 0.58 / 0.48), Spearman 0.47** |
+| 8 | 9B-RL: full run + Part 2 + Part 3 | **done: GO (partial ρ = −0.48); TBG probe AUROC 0.82 (controls 0.49 / 0.52)** |
+| 9 | H3 decision level: SE under directional ablation (`dom`, `rand`) | running |
 
 ## Dev trials (milestones 2–4)
 
@@ -36,32 +42,34 @@ or `invalid` / `no_tool_call` / `context_status` / `error`; discrete SE in bits.
 | LT L1600 s49 (wall) | 0.0 | 0.21 | 1.57 | 0.70 | 0.25 (23) | 0.14 (17) | 1 |
 | LT L1600 s47 | 1.0 | 0.04 | 0.47 | 0.93 | 0.04 (33) | 0.00 (7) | 0 |
 
-- Samples are diverse (10 distinct reasoning traces at every point checked), but most converge on the skill's
-  offload recipe, so 57–93% of points have SE = 0 (plan risk 2, "recipe floor"). SE is not flat, though.
-- **The 5 highest-SE points** (1.29–1.57 bits) all mix three kinds of decision:
+- **Recipe floor (plan risk 2).** Samples are diverse: every checked point has 10 distinct reasoning traces.
+  Most samples still converge on the skill's offload recipe, so 57–93% of points have SE = 0. SE is not flat.
+- **5 highest-SE points (1.29–1.57 bits).** Each mixes three decisions:
   1. offload the incoming batch now (the recipe);
-  2. answer or look up a pending GET first, leaving the context untouched (`grep 'SET K… =' /tmp/ctx_offload/*`);
-  3. the same recipe but cutting a different set of earlier turns (e.g. deleting 6 old blocks vs editing 3 of them).
+  2. answer or look up a pending GET first, context untouched (`grep 'SET K… =' /tmp/ctx_offload/*`);
+  3. same recipe, but cut a different set of earlier turns (e.g. delete 6 old blocks vs edit 3).
+
   These are real context-management choices, not labelling noise.
-- LogTriage: the failed trial (s49) has 5× the mean SE of the successful one (s47). KV: no difference on this pair.
-- Hand check (10 random KV R4000 s46 samples): the offload script labels the SET-BATCH block `offload` and the
-  turns it cut (not saved) `delete`; a `grep` on a missing offload file is `invalid` (exit 2, no edit); an ANSWER `printf`
-  leaves every block `stay`. All 10 correct.
+- **LogTriage:** failed trial (s49) has 5× the mean SE of successful trial (s47). **KV:** no difference on this pair.
+- **Hand check** (10 random KV R4000 s46 samples), all 10 correct:
+  - offload script: SET-BATCH block `offload`, cut turns (not saved) `delete`;
+  - `grep` on a missing offload file: `invalid` (exit 2, no edit);
+  - ANSWER `printf`: every block `stay`.
 
 ## Full 9B run (milestone 5)
 
-- Pass 1 on 42 trials: 40 identical, 2 diverge, both on `ls -la /tmp` (directory size / mtime differ; disk content
-  the same). Per the plan, points after the divergence are dropped: LT L320 s49 keeps turns < 43 of 84, LT L1600 s45
-  keeps < 101 of 130.
-- 1409 points chosen. Sampling at 16 concurrent points (dev used 8; KV cache was at 4%), plus a second
-  sampler walking the queue in reverse (first at 16, which caused 68 vLLM preemptions in ~10 min; restarted at 6,
-  no further preemptions). Preemption recomputes, it does not change samples. Sampling 18:50–20:30 UTC (~1.7 h).
-- Gate B 1237/1237 on the 38 non-dev trials (+160/160 dev). 0 sample errors, 0 prompt-token mismatches.
+- **Pass 1, 42 trials:** 40 identical, 2 diverge. Both diverge on `ls -la /tmp`: directory size / mtime differ, disk
+  content same. Plan drops points after divergence: LT L320 s49 keeps turns < 43 of 84; LT L1600 s45 keeps < 101 of 130.
+- **Sampling:** 1409 points, 18:50–20:30 UTC (~1.7 h).
+  - Main sampler at 16 concurrent points (dev used 8; KV cache at 4%).
+  - Second sampler walks queue in reverse. At 16 it caused 68 vLLM preemptions in ~10 min; restarted at 6, no more
+    preemptions. Preemption recomputes; samples unchanged.
+- **QA:** Gate B 1237/1237 on 38 non-dev trials (+160/160 dev). 0 sample errors, 0 prompt-token mismatches.
 
 ## Part 2: SE vs reward (H1), 9B, n = 42 trials
 
-Full tables: [`figs/m6-se-m5-9b.md`](figs/m6-se-m5-9b.md); plots `figs/m6-se-m5-9b.png`, `figs/m6-se-fill-m5-9b.png`;
-per-trial CSV `figs/m6-se-trials-m5-9b.csv`. No format-slip trials among the 42 logged ones.
+Full tables: [`figs/m6-se-m5-9b.md`](figs/m6-se-m5-9b.md). Per-trial CSV: `figs/m6-se-trials-m5-9b.csv`.
+No format-slip trials among the 42 logged trials.
 
 | cell | n | reward | walls | mean SE | share SE = 0 |
 |---|---|---|---|---|---|
@@ -74,37 +82,52 @@ per-trial CSV `figs/m6-se-trials-m5-9b.csv`. No format-slip trials among the 42 
 | LT L6400 | 6 | 0.24 | 3 | 0.23 | 0.67 |
 | LT L12800 | 6 | 0.25 | 4 | 0.14 | 0.78 |
 
-**Main test (fixed in the plan): partial Spearman ρ(trial mean SE, reward | family×level) = −0.587,
-95% bootstrap CI [−0.775, −0.282].** Strong by the plan's bar (|ρ| ≥ 0.5). Max SE: −0.42 [−0.72, −0.05].
-Mean SE over points with fill ≥ 0.75: −0.31 [−0.87, +0.30] (only 19 trials have such points).
+![M6 9B: mean SE and reward per pressure level; reward vs trial mean SE](figs/m6-se-m5-9b.png)
 
-- Regression `reward ~ mean_SE + C(family:level)`: SE coefficient −2.02 (SE 0.40, p < 0.001); ΔR² = +0.26
-  (0.40 → 0.66). A trial 0.1 bits more uncertain on average scores ~0.20 lower at the same pressure.
-- Robustness (not pre-registered):
-  - with mean fill and number of points added: coefficient −1.65, p = 0.0003;
-  - KV alone ρ = −0.78 (n 18), LogTriage alone ρ = −0.51 (n 24);
-  - edit turns only ρ = −0.45, stay turns only ρ = −0.42;
-  - **SE from the first half of each trial only: ρ = −0.24; OLS with fill p = 0.03.** Uncertainty is present
-    before the failure, not only at the wall;
-  - point SE vs fill: Spearman 0.20, so SE is not mainly context length.
-- SE rises with pressure up to level 3, then falls at level 4 in both families (untested guess: level-4 trials
-  hit the wall early, so they have fewer points and fewer edit decisions).
-- Step level:
-  - harmful-edit proxy AUROC 0.38: **the proxy is uninformative**. 971 of 1051 edit turns are "harmful" by it
-    because the recipe always deletes the previous command turns (routine, not damage). The plan's ground-truth
-    label (a deleted SET later asked for) was not built; it is the next thing to add for a step-level claim;
-  - AUROC of point SE for "this point is in a trial that hits the wall": 0.61 [0.59, 0.64].
-- **Go/no-go: GO** (partial ρ criterion met; AUROC criterion not met, see above).
+*Left: mean trial SE per pressure level. Middle: mean reward per level. Right: reward vs trial mean SE, one dot per
+trial; colour = level (0 = lowest), big dot = trial hit the context wall.*
+
+**Main test (fixed in plan): partial Spearman ρ(trial mean SE, reward | family×level) = −0.587,
+95% bootstrap CI [−0.775, −0.282].** Strong by plan bar (|ρ| ≥ 0.5).
+- Max SE: −0.42 [−0.72, −0.05].
+- Mean SE over points with fill ≥ 0.75: −0.31 [−0.87, +0.30]. Only 19 trials have such points.
+
+**Regression** `reward ~ mean_SE + C(family:level)`: SE coefficient −2.02 (SE 0.40, p < 0.001); ΔR² = +0.26
+(0.40 → 0.66). At same pressure, 0.1 bits more mean uncertainty ≈ 0.20 lower reward.
+
+**Robustness (not pre-registered):**
+- add mean fill and number of points: coefficient −1.65, p = 0.0003;
+- KV alone ρ = −0.78 (n 18); LogTriage alone ρ = −0.51 (n 24);
+- edit turns only ρ = −0.45; stay turns only ρ = −0.42;
+- first half of each trial only (points with t / n_turns < 0.5): ρ = −0.24. OLS controlling for first-half fill:
+  coefficient −1.29, p = 0.028; controlling for whole-trial fill instead: p = 0.18. **Sensitive to the fill
+  control, so only weak evidence that uncertainty precedes failure** (re-checked 2026-11-16);
+- point SE vs fill: Spearman 0.20. SE is not mainly context length (plot below).
+
+![M6 9B: point SE vs context fill](figs/m6-se-fill-m5-9b.png)
+
+*One dot per decision point (1409). Most points sit at SE = 0 at every fill; nonzero SE spreads across all fill levels.*
+
+**Pressure shape.** SE rises with pressure up to level 3, then falls at level 4, in both families. Untested guess:
+level-4 trials hit the wall early, so they have fewer points and fewer edit decisions.
+
+**Step level:**
+- Harmful-edit proxy AUROC 0.38. **Proxy is uninformative.** 971 of 1051 edit turns count as "harmful",
+  because the recipe always deletes previous command turns (routine, not damage). Plan's ground-truth label
+  (a deleted SET later asked for) is not built yet. Build it next for any step-level claim.
+- AUROC of point SE for "point is in a trial that hits the wall": 0.61 [0.59, 0.64].
+
+**Go/no-go: GO.** Partial ρ criterion met. AUROC criterion not met (see above).
 
 ## Part 3: SE probes (H2), 9B, 1409 points / 42 trials
 
-Full table: [`figs/probe-m5-9b.md`](figs/probe-m5-9b.md); direction for H3: `figs/direction-m5-9b.npz` (pod: `runs/m6-probe/`).
+Full table: [`figs/probe-m5-9b.md`](figs/probe-m5-9b.md). Direction for H3: `figs/direction-m5-9b.npz` (pod: `runs/m6-probe/`).
 Code: `infra/semantic_entropy/probe.py` (`dump` → `extract` → `fit`).
 
-- Activations: HF transformers forward pass on the logged prompt plus the logged response, forward hooks on all 32 decoder
-  layers, at TBG (last prompt token) and SLT (last response token). Prompt token counts equal the vLLM log at all points.
-- Fit: γ* = 0 bits (Kossen threshold; 30% of points have SE > 0). Logistic (C 0.05) / ridge (α 1000) on standardized
-  activations; 5-fold GroupKFold by trial (no trial in both train and test); layer chosen on inner folds.
+- **Activations:** HF transformers forward pass on logged prompt + logged response. Forward hooks on all 32 decoder
+  layers, at TBG (last prompt token) and SLT (last response token). Prompt token counts equal vLLM log at all points.
+- **Fit:** γ* = 0 bits (Kossen threshold; 30% of points have SE > 0). Logistic (C 0.05) / ridge (α 1000) on
+  standardized activations. 5-fold GroupKFold by trial: no trial in both train and test. Layer chosen on inner folds.
 
 | target | features | score | control |
 |---|---|---|---|
@@ -115,13 +138,84 @@ Code: `infra/semantic_entropy/probe.py` (`dump` → `extract` → `fit`).
 | SE residualized on fill (Spearman) | TBG | **0.371** | |
 | trial reward < 0.5 (AUROC) | TBG | 0.671 (layer unstable: 0 or 22) | |
 
-- **H2 supported:** SE of the coming context decision can be read from the residual stream *before* the model generates
-  (TBG), well above the context-length controls, and it survives removing fill. TBG > SLT, as in Kossen et al.
-- Earlier smoke test (9 trials) gave TBG 0.78; the full set gives 0.74, so the result was not driven by the dev trials.
-- Caveats: (1) probes predict SE from 10 samples, so labels are noisy (most points SE 0); (2) the logistic direction and
-  the diff-of-means direction at layer 20 are nearly orthogonal (cos 0.09), so for H3 steering both should be tried;
-  the diff-of-means direction is the usual choice for steering. (3) Trial-reward probe is weaker and its layer is
-  unstable; not a claim.
-- Pod `obvrywyztadwv4` stopped after the fit (no GPU work queued). Next: 9B-RL (waits for the user), ground-truth
-  harmful-edit label, H3.
+- **H2 supported.** Residual stream encodes SE of the coming context decision *before* generation (TBG).
+  Score is well above context-length controls and survives removing fill. TBG > SLT, as in Kossen et al.
+- Smoke test (9 trials) gave TBG 0.78; full set gives 0.74. Dev trials did not drive the result.
+- **Caveats:**
+  1. Probes predict SE from 10 samples, so labels are noisy (most points SE 0).
+  2. Logistic direction and diff-of-means direction at layer 20 are nearly orthogonal (cos 0.09). Try both for H3
+     steering; diff-of-means is the usual steering choice.
+  3. Trial-reward probe is weaker and its layer is unstable. Not a claim.
+- Pod `obvrywyztadwv4` stopped after fit.
+
+## 9B-RL (same protocol), 42 trials (milestone 8)
+
+Run 2026-11-16 09:25–12:30 UTC+8, unattended (`m6_chain.sh 9brl m5-9b-rl …`). Model `rl-ckpt-livectx_dapo-iter44`
+@ ffc4aab2, served as `qwen35-9b-rl` with the M5 flags. Same 42 cells and seeds as the 9B; everything else unchanged.
+
+- **QA:** Gate A 41/42 identical; KV R16000 s46 diverges at turn 93 of 98 (cause not inspected), later points dropped.
+  1435 points, 14,350 samples. Gate B 1421/1421, 0 sample errors, 0 prompt-token mismatches (sampling and probe
+  extraction), 133 invalid samples. One format-slip trial excluded from the tests (LT L320 s49: reward 0, no wall).
+- First vLLM start died silently during the flashinfer JIT build; relaunched by hand (decisions.md).
+
+Full tables: [`figs/m6-se-m5-9b-rl.md`](figs/m6-se-m5-9b-rl.md), [`figs/probe-m5-9b-rl.md`](figs/probe-m5-9b-rl.md).
+Plots `figs/m6-se-m5-9b-rl.png`, `figs/m6-se-fill-m5-9b-rl.png`; CSV `figs/m6-se-trials-m5-9b-rl.csv`.
+
+| cell | n | reward | walls | mean SE | share SE = 0 | 9B reward | 9B mean SE |
+|---|---|---|---|---|---|---|---|
+| KV R260 | 6 | 0.99 | 0 | 0.02 | 0.96 | 0.93 | 0.07 |
+| KV R1000 | 4 | 1.00 | 0 | 0.03 | 0.95 | 0.54 | 0.19 |
+| KV R4000 | 4 | 0.63 | 2 | 0.10 | 0.84 | 0.53 | 0.41 |
+| KV R16000 | 4 | 0.50 | 2 | 0.08 | 0.86 | 0.25 | 0.33 |
+| LT L320 | 5 | 0.99 | 0 | 0.07 | 0.89 | 0.94 | 0.10 |
+| LT L1600 | 6 | 0.72 | 2 | 0.09 | 0.87 | 0.40 | 0.21 |
+| LT L6400 | 6 | 0.76 | 1 | 0.08 | 0.86 | 0.24 | 0.23 |
+| LT L12800 | 6 | 0.64 | 1 | 0.08 | 0.89 | 0.25 | 0.14 |
+
+![M6 9B-RL: mean SE and reward per pressure level; reward vs trial mean SE](figs/m6-se-m5-9b-rl.png)
+
+**Main test (pre-registered): partial ρ(mean SE, reward | level) = −0.477 [−0.736, −0.094] → GO** (9B: −0.587).
+
+| summary | n | ρ [95% CI] |
+|---|---|---|
+| mean SE | 41 | −0.477 [−0.736, −0.094] |
+| max SE | 41 | −0.355 [−0.723, +0.065] |
+| mean SE at fill ≥ 0.75 | 8 | −0.640 [−1.00, +0.99] |
+
+- **Regression** `reward ~ mean_SE + C(level)`: coefficient −3.16 (SE 0.98, p = 0.003); ΔR² +0.19 (0.23 → 0.42).
+- **Robustness:**
+  - add mean fill and number of points: −3.02, p = 0.006;
+  - KV ρ = −0.43 (n 18); LogTriage ρ = −0.39 (n 23);
+  - edit turns only ρ = −0.22; stay turns only ρ = −0.51;
+  - first half only: ρ = −0.10 (OLS p = 0.81 with first-half fill, 0.73 with whole-trial fill). **No early signal;**
+  - point SE vs fill: Spearman 0.03.
+- **Step level:** harmful-edit proxy AUROC 0.35 (1027/1107 "harmful", same uninformative proxy); wall-trial AUROC 0.56.
+
+**Part 3 probes (9B-RL).** γ* = 0; only 12% of points have SE > 0 (9B: 30%).
+
+| target | features | score (layers) | control |
+|---|---|---|---|
+| SE > 0 (AUROC) | TBG | **0.818** (28) | fill + turn index 0.493; shuffled 0.522 |
+| SE (Spearman) | TBG | **0.383** (28) | fill + turn index 0.004; shuffled −0.006 |
+| SE > 0 (AUROC) | SLT | 0.729 (8–10) | |
+| SE (Spearman) | SLT | 0.260 | |
+| SE residualized on fill (Spearman) | TBG | 0.238 (layer unstable, 12–24) | |
+| trial reward < 0.5 (AUROC) | TBG | 0.576 | |
+
+Direction: `figs/direction-m5-9b-rl.npz` (layer 28; cos(w, DoM) = 0.09).
+
+**9B vs 9B-RL:**
+- RL scores much higher under pressure (level 4: KV 0.50 vs 0.25, LogTriage 0.64 vs 0.25) and hits the wall less (8 vs 18 trials).
+- RL is far more certain: 84–96% of points at SE = 0; mean SE 0.02–0.10 vs 0.07–0.41. The rise of SE with pressure is gone.
+- Where RL is uncertain it still does worse (ρ −0.48), with a larger per-bit cost (coefficient −3.16 vs −2.02).
+- SE > 0 is at least as decodable (0.82 vs 0.74) but peaks later (layer 28 vs 18–22). Continuous and
+  fill-residualized signals are weaker (0.38 / 0.24 vs 0.47 / 0.37), plausibly because SE > 0 is rarer.
+- No early-trial SE signal in RL.
+
+## H3 (milestone 9): directional ablation, decision level — running
+
+Design and config: decisions.md (2026-11-16 ~11:55 UTC+8). Edited 9B checkpoints (weight orthogonalization of the
+layer-20 diff-of-means SE direction, `dom`; a random direction, `rand`), resampled at the same 1409 9B points with the
+same seeds; compare SE to the 9B baseline. Projection check: |h·d|/|h| ≤ 0.0006 at every layer after editing (before:
+0.07–0.16 for `dom`, ~0.008 for `rand`, so the random control removes much less of the residual stream).
 
