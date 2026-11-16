@@ -18,6 +18,8 @@ if [[ "${CB_SETTINGS:-appf}" == appf ]]; then
              --agent-kwarg context_budget_reserve_tokens=4096
              --agent-kwarg max_steps=240)
 fi
+# vLLM's Mistral tokenizer mode rejects chat_template_kwargs (400); Ministral has no thinking to toggle.
+[[ ${MODEL:-} == ministral* ]] && OVERRIDES+=(--agent-kwarg send_chat_template_kwargs=false)
 exec harbor trials start \
   -p "$ROOT/data/cb_tasks/$TASK" \
   --trials-dir "$TRIALS_DIR" --trial-name "$TASK" \

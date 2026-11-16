@@ -17,6 +17,8 @@ uv venv -q /root/envs/hf --python 3.12 && VIRTUAL_ENV=/root/envs/hf uv pip insta
 
 uv venv -q /root/envs/vllm-env --python 3.12
 VIRTUAL_ENV=/root/envs/vllm-env uv pip install -q vllm==0.33.0
+# vLLM 0.33.0's Mistral tool grammar calls get_lark_from_jinja without force_tool_names (added in mistral-common 1.13)
+VIRTUAL_ENV=/root/envs/vllm-env uv pip install -q "mistral-common==1.12.0"
 uv venv -q /root/envs/clm-env --python 3.12
 VIRTUAL_ENV=/root/envs/clm-env uv pip install -q -e "$ROOT/context-language-models" \
   -e "$ROOT/data/ContextBench[tokenizer]" matplotlib pandas pyarrow

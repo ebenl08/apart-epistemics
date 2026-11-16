@@ -7,11 +7,14 @@
 set -u
 cd /workspace/apart-epistemics
 case $1 in gemma) chain=(gemma4-e4b); GPU=0; PORT=8000; PROXY=9000 ;;
-  mistral) chain=(ministral3-8b); GPU=1; PORT=8010; PROXY=9010 ;; *) echo "unknown family"; exit 2 ;; esac
+  mistral) chain=(ministral3-8b); GPU=1; PORT=8010; PROXY=${PROXY:-9010} ;; *) echo "unknown family"; exit 2 ;; esac
+# PROXY=<port> overrides the proxy port (a proxy hung on the volume can keep holding its port)
 mine="vllm serve /root/models/($(IFS="|"; echo "${chain[*]}"))"  # never touch the other family's server
 LEVELS="log-triage-L12800 kv-store-R16000 log-triage-L6400 kv-store-R4000 log-triage-L1600 kv-store-R1000 log-triage-L320 kv-store-R260"
 R=/workspace/apart-epistemics/runs
-mkdir -p runs/queues runs/logs
+LMLOG=/root/m5-lmlog  # LM-call logs on local disk (the network volume stalled on 2026-11-16); moved to runs/m5-lmlog at the end
+mkdir -p runs/queues runs/logs $LMLOG
+trap 'for c in "${chain[@]}"; do infra/lmlog_flush.sh $LMLOG runs/m5-lmlog m5b-$c-; done' EXIT  # also on gate failure
 say() { echo "$(date -u +%T) $*"; }
 
 queue() {  # queue <name> <model> <skill> <seeds> [skip-smoke]: write runs/queues/<name>.txt
@@ -36,7 +39,7 @@ serve() {  # stop this family's server, start <model> on $GPU:$PORT, wait until 
   say "$1 server up"
 }
 
-setsid nohup /root/envs/clm-env/bin/python infra/lm_log_proxy.py $PROXY http://localhost:$PORT runs/m5-lmlog \
+setsid nohup /root/envs/clm-env/bin/python infra/lm_log_proxy.py $PROXY http://localhost:$PORT $LMLOG \
   > runs/logs/proxy-$PROXY.log 2>&1 < /dev/null &
 
 for m in "${chain[@]}"; do
@@ -44,10 +47,10 @@ for m in "${chain[@]}"; do
   queue m5b-$m-smoke $m clm 42
   sed -i '/kv-store-R260-seed42\|log-triage-L320-seed42/!{/^#/!d}' runs/queues/m5b-$m-smoke.txt
   run m5b-$m-smoke 2
-  n=$(cat runs/m5-lmlog/m5b-$m-clm__{kv-store-R260,log-triage-L320}-seed42.jsonl 2>/dev/null | grep -c '"tool_calls": \[{')
+  n=$(cat $LMLOG/m5b-$m-clm__{kv-store-R260,log-triage-L320}-seed42.jsonl 2>/dev/null | grep -c '"tool_calls": \[{')
   say "$m smoke: $n calls with parsed tool calls; parser:" \
     "$(grep -o 'FENCE kind=[a-z]*' runs/logs/vllm-m5b-$m.log | sort | uniq -c | tr -s ' \n' ' ')" \
-    "fence ids replayed: $(cat runs/m5-lmlog/m5b-$m-clm__*-seed42.jsonl | grep -o '"tool_call_id": "fence_' | wc -l)"
+    "fence ids replayed: $(cat $LMLOG/m5b-$m-clm__*-seed42.jsonl | grep -o '"tool_call_id": "fence_' | wc -l)"
   [[ $n -ge 10 ]] || { say "SMOKE_GATE_FAILED $m"; pkill -f "$mine"; exit 1; }
   [[ -n ${SMOKE_ONLY:-} ]] && { say "SMOKE_ONLY: stop after the gate"; pkill -f "$mine"; exit 0; }
   queue m5b-$m-clm $m clm "42 43 44 45" skip-smoke
