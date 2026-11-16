@@ -134,3 +134,9 @@ Both models answer with a fenced ```bash block (Llama: "THOUGHT: … ```bash …
 - Full run: 42/42 trials, 1409 points, Gate B 1397/1397, 0 errors. A second reverse-order sampler was added to keep the GPU busy between trials; at concurrency 16 it caused 68 vLLM preemptions, restarted at 6 (no more). vLLM stopped after sampling.
 - **Part 2 (pre-registered): partial Spearman ρ(mean SE, reward | level) = −0.587 [−0.775, −0.282] → GO.** Harmful-edit proxy AUROC 0.38 is not evidence against: the proxy marks 92% of edit turns as harmful (the recipe always deletes old command turns); plan's ground-truth label not built.
 - Analysis env: tabulate added to clm-env. Part 3 extraction runs in vllm-env with `flash-linear-attention` installed (torch unchanged, 2.14.0); `causal_conv1d` not installed (reference PyTorch path, slower). Tool-call arguments converted from JSON strings to dicts before templating, as vLLM does; prompt token counts then equal the logged ones (0 mismatches). Activations captured with forward hooks on each decoder layer (residual stream after the layer) at TBG and SLT, not `output_hidden_states` (memory).
+
+## 2026-11-16 ~22:45 UTC — M6 Part 3 (9B probes) done; pod stopped
+- Extraction 42/42 trials, 0 token mismatches; fit on CPU in vllm-env (scikit-learn added there). `probe.py` uses `.to("cuda")` (no `accelerate`) and parses tool-call argument strings into dicts before templating; requests dumped in clm-env first (vllm-env has no harbor/litellm).
+- Result: TBG probe AUROC 0.741 for SE > γ* (γ* = 0), Spearman 0.466; controls fill+turn 0.578 / 0.159, shuffled 0.483 / −0.033; SE residualized on fill 0.371. SLT weaker (0.648 / 0.331). H2 supported.
+- Logistic direction vs diff-of-means at layer 20: cos 0.09; both saved for H3.
+- Pod `obvrywyztadwv4` stopped (API v2 action stop). Volume keeps all outputs. 9B-RL not started: waits for the user after this report.

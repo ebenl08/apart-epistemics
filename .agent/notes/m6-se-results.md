@@ -25,7 +25,7 @@ or `invalid` / `no_tool_call` / `context_status` / `error`; discrete SE in bits.
 | 4 | SE for dev trials; 5 high-SE points read | **done** (below) |
 | 5 | Full 9B run + QA | **done: 42/42 trials, 1409 points, 14,090 samples, 0 errors, 0 prompt-token mismatches, Gate B 1397/1397** |
 | 6 | Part 2 analysis, go/no-go | **done: GO** (partial ρ = −0.59) |
-| 7 | Part 3 probe | running (activation extraction) |
+| 7 | Part 3 probe | **done: TBG probe AUROC 0.74 (controls 0.58 / 0.48), Spearman 0.47** |
 
 ## Dev trials (milestones 2–4)
 
@@ -87,12 +87,41 @@ Mean SE over points with fill ≥ 0.75: −0.31 [−0.87, +0.30] (only 19 trials
   - **SE from the first half of each trial only: ρ = −0.24; OLS with fill p = 0.03.** Uncertainty is present
     before the failure, not only at the wall;
   - point SE vs fill: Spearman 0.20, so SE is not mainly context length.
-- SE rises with pressure up to level 3, then falls at level 4 in both families (the trials that hit the wall
-  early have fewer points and fewer edit decisions).
+- SE rises with pressure up to level 3, then falls at level 4 in both families (untested guess: level-4 trials
+  hit the wall early, so they have fewer points and fewer edit decisions).
 - Step level:
   - harmful-edit proxy AUROC 0.38: **the proxy is uninformative**. 971 of 1051 edit turns are "harmful" by it
     because the recipe always deletes the previous command turns (routine, not damage). The plan's ground-truth
     label (a deleted SET later asked for) was not built; it is the next thing to add for a step-level claim;
   - AUROC of point SE for "this point is in a trial that hits the wall": 0.61 [0.59, 0.64].
 - **Go/no-go: GO** (partial ρ criterion met; AUROC criterion not met, see above).
+
+## Part 3: SE probes (H2), 9B, 1409 points / 42 trials
+
+Full table: [`figs/probe-m5-9b.md`](figs/probe-m5-9b.md); direction for H3: `figs/direction-m5-9b.npz` (pod: `runs/m6-probe/`).
+Code: `infra/semantic_entropy/probe.py` (`dump` → `extract` → `fit`).
+
+- Activations: HF transformers forward pass on the logged prompt plus the logged response, forward hooks on all 32 decoder
+  layers, at TBG (last prompt token) and SLT (last response token). Prompt token counts equal the vLLM log at all points.
+- Fit: γ* = 0 bits (Kossen threshold; 30% of points have SE > 0). Logistic (C 0.05) / ridge (α 1000) on standardized
+  activations; 5-fold GroupKFold by trial (no trial in both train and test); layer chosen on inner folds.
+
+| target | features | score | control |
+|---|---|---|---|
+| SE > 0 (AUROC) | TBG | **0.741** (layers 18–20) | fill + turn index 0.578; shuffled labels 0.483 |
+| SE (Spearman) | TBG | **0.466** (layers 20–22) | fill + turn index 0.159; shuffled −0.033 |
+| SE > 0 (AUROC) | SLT | 0.648 | |
+| SE (Spearman) | SLT | 0.331 | |
+| SE residualized on fill (Spearman) | TBG | **0.371** | |
+| trial reward < 0.5 (AUROC) | TBG | 0.671 (layer unstable: 0 or 22) | |
+
+- **H2 supported:** SE of the coming context decision can be read from the residual stream *before* the model generates
+  (TBG), well above the context-length controls, and it survives removing fill. TBG > SLT, as in Kossen et al.
+- Earlier smoke test (9 trials) gave TBG 0.78; the full set gives 0.74, so the result was not driven by the dev trials.
+- Caveats: (1) probes predict SE from 10 samples, so labels are noisy (most points SE 0); (2) the logistic direction and
+  the diff-of-means direction at layer 20 are nearly orthogonal (cos 0.09), so for H3 steering both should be tried;
+  the diff-of-means direction is the usual choice for steering. (3) Trial-reward probe is weaker and its layer is
+  unstable; not a claim.
+- Pod `obvrywyztadwv4` stopped after the fit (no GPU work queued). Next: 9B-RL (waits for the user), ground-truth
+  harmful-edit label, H3.
 
