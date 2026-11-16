@@ -55,32 +55,25 @@ def exp1():
 
 
 def exp2():
-    fig, ax = plt.subplots(2, 3, figsize=(5.5, 3.8), layout="constrained")
+    # rows: SE, reward; columns: KV store, LogTriage; lines: 9B, 9B-RL (same colours as exp1)
+    fig, ax = plt.subplots(2, 2, figsize=(5.5, 3.6), sharex="col", layout="constrained")
     out = {}
-    for r, (m, lab) in enumerate((("m5-9b", "9B"), ("m5-9b-rl", "9B-RL"))):
+    for k, (m, lab, colr) in enumerate((("m5-9b", "9B", "C0"), ("m5-9b-rl", "9B-RL", "C1"))):
         T = pd.read_csv(N / f"m6-se-trials-{m}.csv")
         T = T[~T.format_slip.astype(bool)]  # same exclusion as the H1 tests (one 9B-RL format slip)
         out[lab] = T
-        for k, (fam, mk) in enumerate((("kv-store", "o"), ("log-triage", "s"))):
-            g = T[T.family == fam].groupby("level"); x = np.arange(4) + (k - .5) * .1
-            for a, col in ((ax[r, 0], "mean_se"), (ax[r, 1], "reward")):
+        for c, fam in enumerate(("kv-store", "log-triage")):
+            g = T[T.family == fam].groupby("level"); x = np.arange(4) + (k - .5) * .08
+            for r, col in enumerate(("mean_se", "reward")):
                 ys = [g.get_group(l)[col].mean() for l in LEVELS[fam]]
                 e = np.array([ci95(g.get_group(l)[col]) for l in LEVELS[fam]]).T
-                a.errorbar(x, ys, yerr=e, marker=mk, ms=3, capsize=2, label=FAM[fam])
-        for a in ax[r, :2]:
-            a.set_xticks(range(4)); a.set_xticklabels(["1", "2", "3", "4"])
-        ax[r, 0].set_ylabel(f"{lab}\nmean trial SE (bits)"); ax[r, 1].set_ylabel("reward")
-        ax[r, 0].set_ylim(0, .6); ax[r, 1].set_ylim(-.05, 1.08)
-        lv = [LEVELS[f].index(l) for f, l in zip(T.family, T.level)]
-        sc = ax[r, 2].scatter(T.mean_se, T.reward, c=lv, cmap="viridis", vmin=0, vmax=3,
-                              s=[22 if w else 7 for w in T.wall], edgecolor="k", linewidth=.3)
-        ax[r, 2].set_xlim(-.02, .6); ax[r, 2].set_ylim(-.05, 1.08); ax[r, 2].set_yticklabels([])
+                ax[r, c].errorbar(x, ys, yerr=e, marker="o", ms=3, capsize=2, color=colr, label=lab)
+    for c, fam in enumerate(("kv-store", "log-triage")):
+        ax[0, c].set_title(FAM[fam]); ax[1, c].set_xlabel("pressure level")
+        ax[1, c].set_xticks(range(4)); ax[1, c].set_xticklabels(LEVELS[fam])
+        ax[0, c].set_ylim(0, .6); ax[1, c].set_ylim(-.05, 1.08)
+    ax[0, 0].set_ylabel("mean trial SE (bits)"); ax[1, 0].set_ylabel("mean reward")
     ax[0, 0].legend(frameon=False, loc="upper left")
-    for a, t in zip(ax[0], ("(a) SE by level", "(b) reward by level", "(c) reward vs SE")):
-        a.set_title(t)
-    for a, t in zip(ax[1], ("pressure level", "pressure level", "trial mean SE (bits)")):
-        a.set_xlabel(t)
-    cb = fig.colorbar(sc, ax=ax[:, 2], ticks=range(4), fraction=.08); cb.set_label("pressure level (0 = lowest)")
     fig.savefig(OUT / "exp2-se.pdf", bbox_inches="tight"); fig.savefig(OUT / "exp2-se.png", dpi=200, bbox_inches="tight")
     return out
 
