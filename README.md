@@ -108,18 +108,3 @@ checkpoint, vendored in [`context-language-models/`](context-language-models/) u
 The harness runs on [Harbor](https://github.com/laude-institute/harbor). Our uncertainty measure follows semantic
 entropy ([Kuhn et al., 2023](https://arxiv.org/abs/2302.09664); [Farquhar et al., 2024](https://pmc.ncbi.nlm.nih.gov/articles/PMC11186750))
 and semantic entropy probes ([Kossen et al., 2024](https://arxiv.org/abs/2406.15927)).
-
-## Citation
-
-If you use this work, please cite the CLM paper it builds on:
-
-```bibtex
-@article{shao2026context,
-  title   = {Context Language Models},
-  author  = {Shao, Rulin and Shen, Shannon Zejiang and Yin, Junjie Oscar and Li, Yuetai and
-             Wang, Minheng and Ivison, Hamish and Poovendran, Radha and Lambert, Nathan and
-             Xiao, Teng and Lewis, Mike and Yih, Wen-tau and Zettlemoyer, Luke and Koh, Pang Wei},
-  journal = {arXiv preprint arXiv:2609.37725},
-  year    = {2026}
-}
-```
