@@ -1,7 +1,10 @@
 # Handoff: M5B, Llama 3.1 8B and Gemma 3 on the M5 ContextBench sweep
 
-Status (2026-11-16 01:25 UTC): **blocked at the smoke gate; both pods stopped.** No M5B trial data yet.
-Next step: build the tool-call fix (below) locally, then restart the pods and rerun the smoke gate.
+Status (2026-11-16): **fix built locally, not yet run.** Both old pods are stopped; no M5B trial data yet.
+Next steps:
+1. Wait until the M6 run on the volume is done (`probe.py` copy rule, see below).
+2. Confirm the config with the user.
+3. Create one 2×A40 pod and run the smoke gate on both families.
 
 ## Why
 
@@ -57,39 +60,36 @@ Evidence on the volume:
 - `runs/m5-lmlog/m5b-*-clm__*.jsonl`;
 - `runs/m5b-*-clm/` (killed smoke trials; delete or move them before rerunning).
 
-## Proposed fix (user said "fix it"; config not yet confirmed)
+## Fix (built 2026-11-16, details in `decisions.md`)
 
-**A. Fenced-bash fallback parser (recommended)**
-- A vLLM `--tool-parser-plugin` that first tries the family's native parser.
-- If that finds no tool call, it turns the last fenced ```bash block into `bash(command=…)`.
-- **For Gemma, also stop the 400s.** Either use a chat template that merges consecutive same-role messages, or merge them in `lm_log_proxy.py`. The template is cleaner, since the proxy logs what it receives.
-- **Log every fallback and every parse miss** (no block, several blocks, truncated block), so a format failure can be told apart from a context-management failure.
-- Check whether the harness calls vLLM with streaming. If it does, the plugin needs the streaming method too.
-- Self-check: a `__main__` with sample Llama and Gemma replies.
-
-**Consequences, discussed with the user**
-- Llama and Gemma read text-parsed actions, while Qwen used native calls. Family differences could partly come from the format. Record this as a deviation.
-- Optional control (not yet approved): run Qwen 9B through the same text path, 1 seed × 16 cells. All 16 trials run at once, so it takes about 45–60 min (~$0.5), not 2 h. The user pushed back on a 2 h estimate.
-- The model's prompt and sampling are unchanged, and M6 semantic entropy is unaffected (the command text is sampled either way).
-- Standard practice: mini-SWE-agent parses ```bash blocks; OpenHands has a non-function-calling mode. Pick the mode per model and report it.
-
-**Alternatives the user has seen:**
-- **B.** Tell the models in the prompt to use tool calls. This is a bigger deviation.
-- **C.** Report "can't drive the harness" as the finding.
-- **OpenRouter:**
-  - Llama 3.1 8B has tool calling on CoreWeave, and Gemma 3 12B on DeepInfra. Gemma 3 4B has no provider with tool calling.
-  - The sandbox would still need a CPU pod.
-  - No hidden states or n>1 samples for M6.
-
-**Before running, confirm the config with the user** (bulleted control/vary). Then:
-1. Build and test the parser locally.
-2. Restart the pods.
-3. Rerun the smoke gate with a monitor.
-4. Run the rest of the chain unattended.
+- `infra/fence_tool_parser.py` is a vLLM plugin with two parsers, `llama3_json_fence` and `pythonic_fence`:
+  - It takes the last ```bash block first and falls back to the native parser when there is none.
+  - `content` is the text before the block, and the call id is `fence_<hex>`.
+  - Each reply logs one `FENCE kind=fallback|native|miss` line in the vLLM log.
+  - Self-check: `python3 infra/fence_tool_parser.py`.
+- `infra/chat_templates/*` are patched:
+  - A `fence_` call replays as the generated text.
+  - Gemma's same-role turns are merged (this fixes the 400s).
+  - The Llama date is fixed.
+- `serve_m5b.sh` uses the plugin.
+- `m5b_launch.sh <family>` runs one family per GPU (Gemma: GPU 0, :8000, proxy :9000; Llama: GPU 1, :8010, proxy :9010). It kills only its own server. The smoke line prints the FENCE counts and how many `fence_` ids were replayed.
+- **Smoke checks beyond the existing ≥ 10-calls gate:**
+  - Most calls should be `fallback`, with few `miss`.
+  - `fence ids replayed` > 0, which shows the harness kept the ids and the template took the fence branch.
+  - Token-level round trip on a few logged turns: the vLLM tokenizer with `chat_template=<patched>` should give `prompt_tokens` equal to the logged value.
+- **Deviation to report:** Llama and Gemma use text-parsed actions, while Qwen uses native calls.
+  - The Qwen text-path control (1 seed × 16 cells) is still optional and not approved.
+- **M6 `probe.py` changes are in the M6 session's hands:** see [`handoff-m6-probe-nonqwen.md`](handoff-m6-probe-nonqwen.md).
+  - **Don't scp `infra/semantic_entropy/*` to the volume while an M6 chain runs.** M5B needs only `fence_tool_parser.py`,
+    `chat_templates/`, `serve_m5b.sh` and `m5b_launch.sh`, and none of these are M6 files.
+- Delete or move `runs/m5b-*-clm/` and `runs/m5-lmlog/m5b-*` (the failed smoke trials) before rerunning.
 
 ## Pods
 
-Both pods are 1×A40, EU-SE-1, $0.59/h, on volume `hri0q37of4` at `/workspace`, and both are **stopped**. Restart with `POST /v2/pods/<id>/action {"action":"start"}`. That keeps the container disk (venvs, `/root/models/*`, `/root/.hf_token`), but SSH ip and port change. If the host has no free GPU, create a new 1×A40 pod from the JSON in the old session's scratchpad (or the template in the semantic-entropy handoff) and run `SKIP_QWEN=1 infra/setup_pod.sh`.
+**Plan: one new 2×A40 pod** (EU-SE-1, volume `hri0q37of4` at `/workspace`, ~$1.18/h), with `SKIP_QWEN=1 infra/setup_pod.sh`.
+Use the pod JSON template in the semantic-entropy handoff with `"gpu":{"count":2}`. The weights must be downloaded
+again on the new container disk, which `serve_m5b.sh` does at the pinned revision. The old 1×A40 pods below are stopped; terminate them
+once the new pod works (ask first).
 
 | Pod | Name | Holds | Last SSH |
 |---|---|---|---|

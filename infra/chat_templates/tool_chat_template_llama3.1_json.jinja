@@ -6,12 +6,10 @@
     {#- Llama 3.1 doesn't pass all tests if the tools are in the system prompt #}
     {%- set tools_in_user_message = true %}
 {%- endif %}
+{#- M5B: fixed date (no strftime_now) so a trial crossing midnight and M6 replays/probes on a later
+    day see the same prompt. 26 Jul 2024 is this template's own fallback. #}
 {%- if not date_string is defined %}
-    {%- if strftime_now is defined %}
-        {%- set date_string = strftime_now("%d %b %Y") %}
-    {%- else %}
-        {%- set date_string = "26 Jul 2024" %}
-    {%- endif %}
+    {%- set date_string = "26 Jul 2024" %}
 {%- endif %}
 {%- if not tools is defined %}
     {%- set tools = none %}
@@ -96,10 +94,15 @@
         {%- endif %}
         {%- set tool_call = message.tool_calls[0].function %}
         {{- '<|start_header_id|>assistant<|end_header_id|>\n\n' -}}
+        {#- M5B: a call parsed from a ```bash block (infra/fence_tool_parser.py) replays as generated #}
+        {%- if (message.tool_calls[0].id or '').startswith('fence_') %}
+            {{- (message.content or '') + '```bash\n' + tool_call.arguments.command + '\n```' }}
+        {%- else %}
         {{- '{"name": "' + tool_call.name + '", ' }}
         {{- '"parameters": ' }}
         {{- tool_call.arguments | tojson }}
         {{- "}" }}
+        {%- endif %}
         {{- "<|eot_id|>" }}
     {%- elif message.role == "tool" or message.role == "ipython" %}
         {{- "<|start_header_id|>ipython<|end_header_id|>\n\n" }}

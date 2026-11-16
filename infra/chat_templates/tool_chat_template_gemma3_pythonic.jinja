@@ -16,25 +16,22 @@
 {%- if not tools is defined %}
     {%- set tools = none %}
 {%- endif %}
-{#- Validate alternating user/assistant messages (excluding 'tool' messages and ones with tool_calls) -#}
-{%- for message in loop_messages | rejectattr("role", "equalto", "tool") | selectattr("tool_calls", "undefined") -%}
-    {%- if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}
-        {{ raise_exception("Conversation roles must alternate user/assistant/user/assistant/...") }}
-    {%- endif -%}
-{%- endfor -%}
-
-{#- Main loop over all messages in the conversation history -#}
+{#- M5B: no alternation check. The harness sends system, user, user (task, ledger) and tool results
+    followed by user notices; consecutive same-role turns are merged into one turn (joined by a blank
+    line, as the harness's own _normalize does) so Gemma still sees strict user/model alternation. -#}
+{%- set ns = namespace(prev=none) -%}
 {%- for message in loop_messages -%}
-    {#- Normalize roles for model prompt formatting -#}
-    {%- if (message['role'] == 'assistant') -%}
-        {%- set role = "model" -%}
-    {%- elif (message['role'] == 'tool') -%}
-        {%- set role = "user" -%}
+    {%- set role = "model" if message['role'] == 'assistant' else "user" -%}
+    {%- if loop.last -%}
+        {%- set next_role = none -%}
     {%- else -%}
-        {%- set role = message['role'] -%}
+        {%- set next_role = "model" if loop.nextitem['role'] == 'assistant' else "user" -%}
     {%- endif -%}
-    {#- Mark the start of a message block with the appropriate role -#}
-    {{ '<start_of_turn>' + role + '\n' -}}
+    {%- if role != ns.prev -%}
+        {{ '<start_of_turn>' + role + '\n' -}}
+    {%- else -%}
+        {{ '\n\n' -}}
+    {%- endif -%}
 
     {#- Insert system message content (if present) at the beginning of the first message. -#}
     {%- if loop.first -%}
@@ -50,21 +47,18 @@
         {%- endif -%}
     {%- endif -%}
 
+    {%- if message.tool_calls and (message.tool_calls[0].id or '').startswith('fence_') -%}
+        {#- M5B: a call parsed from a ```bash block (infra/fence_tool_parser.py) replays as generated -#}
+        {{- (message.content or '') + '```bash\n' + message.tool_calls[0].function.arguments.command + '\n```' -}}
+    {%- else -%}
     {#- Format model tool calls (turns where model indicates they want to call a tool) -#}
-    {%- if 'tool_calls' in message -%}
-        {#- Opening bracket for tool call list. -#}
+    {%- if message.tool_calls -%}
         {{- '[' -}}
-        {#- For each tool call -#}
         {%- for tool_call in message.tool_calls -%}
-            {#- Get tool call function. -#}
             {%- if tool_call.function is defined -%}
                 {%- set tool_call = tool_call.function -%}
             {%- endif -%}
-            {#- Function name & opening parenthesis. -#}
             {{- tool_call.name + '(' -}}
-
-            {#-- Handle arguments as list (positional) or dict (named) --#}
-            {#-- Named arguments (dict) --#}
             {%- if tool_call.arguments is iterable and tool_call.arguments is mapping -%}
                 {%- set first = true -%}
                 {%- for key, val in tool_call.arguments.items() -%}
@@ -72,29 +66,23 @@
                     {{ key }}={{ val | tojson }}
                     {%- set first = false -%}
                 {%- endfor -%}
-            {#-- Positional arguments (list) --#}
             {%- elif tool_call.arguments is iterable -%}
                 {{- tool_call.arguments | map('tojson') | join(', ') -}}
-            {#-- Fallback: single positional value --#}
             {%- else -%}
                 {{- tool_call.arguments | tojson -}}
-            {#-- Closing parenthesis. --#}
             {%- endif -%}
                 {{- ')' -}}
-            {#-- If more than one tool call, place comma and move to formatting next tool call --#}
             {%- if not loop.last -%}, {% endif -%}
         {%- endfor -%}
-        {#- Closing bracket for tool call list. -#}
         {{- ']' -}}
     {%- endif -%}
-    
-    {#- Tool response start tag (for messages from a tool) -#}
+
     {%- if (message['role'] == 'tool') -%}
         {{ '<tool_response>\n' -}}
     {%- endif -%}
 
-    {#- Render the message content: handle plain string or multimodal content like image/text -#}
-    {%- if message['content'] is string -%}
+    {%- if message['content'] is none -%}
+    {%- elif message['content'] is string -%}
         {{ message['content'] | trim }}
     {%- elif message['content'] is iterable -%}
         {%- for item in message['content'] -%}
@@ -108,13 +96,15 @@
         {{ raise_exception("Invalid content type") }}
     {%- endif -%}
 
-    {#- Tool response end tag -#}
     {%- if (message['role'] == 'tool') -%}
         {{ '</tool_response>' -}}
     {%- endif -%}
+    {%- endif -%}
 
-    {#- Mark end of a single turn -#}
-    {{ '<end_of_turn>\n' }}
+    {%- if role != next_role -%}
+        {{ '<end_of_turn>\n' }}
+    {%- endif -%}
+    {%- set ns.prev = role -%}
 {%- endfor -%}
 
 {#- If generation is to be triggered, add model prompt prefix -#}
