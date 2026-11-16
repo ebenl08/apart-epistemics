@@ -10,8 +10,8 @@ PY=/root/envs/vllm-env/bin/python
 # wait only for the 9B-RL GPU stages (probe extraction); its CPU-only probe fit may still be running
 until grep -q "Part 2 done" runs/logs/m6-9brl-chain.log && [[ -f runs/logs/m6-9brl-probe-fit.log ]]; do sleep 30; done
 rm -rf /root/models/clm-9b-rl   # disk: 9B-RL weights no longer needed (fit uses saved activations)
-SRC=$(HF_HUB_ENABLE_HF_TRANSFER=1 /root/envs/hf/bin/hf download Qwen/Qwen3.5-9B 2>/dev/null | tail -1)
-[[ -f $SRC/config.json ]] || { echo "BASE WEIGHTS MISSING ($SRC)"; exit 1; }
+SRC=$(HF_HUB_ENABLE_HF_TRANSFER=1 /root/envs/hf/bin/python -c "from huggingface_hub import snapshot_download as s; print(s('Qwen/Qwen3.5-9B'))" 2>/dev/null | tail -1)
+[[ -f $SRC/config.json && $(du -sLm $SRC | cut -f1) -gt 15000 ]] || { echo "BASE WEIGHTS MISSING ($SRC)"; exit 1; }
 echo "$(date -u +%T) H3 START; base weights $SRC"
 
 serve() {  # $1 = weights dir; retried once: the first vLLM start on a pod died silently during flashinfer JIT (9B-RL run)
