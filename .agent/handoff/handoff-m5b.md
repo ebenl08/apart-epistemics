@@ -1,6 +1,14 @@
 # Handoff: M5B, Gemma 4 E4B and Ministral 3 8B on the M5 ContextBench sweep
 
-Status (2026-11-16 15:40 UTC+8): **runs done; pod stopped.** Neither model shows Qwen's decreasing trend.
+Status (2026-11-16 20:30 UTC+8): **done. Runs finished, full report written, all M5B pods terminated.**
+Neither model shows Qwen's decreasing trend. Branch: `m5b` (report, plot, analysis scripts); earlier M5B code is already on `main`.
+
+## Read first
+
+- Report: [`notes/m5b-results.md`](../notes/m5b-results.md) (trend + logistic tests, per-cell table, wall decomposition,
+  failure modes, LM-call behaviour, caveats). Figure: [`notes/figs/m5b-vs-qwen.png`](../notes/figs/m5b-vs-qwen.png).
+- Per-trial table: [`notes/figs/m5b.md`](../notes/figs/m5b.md) (`cb_report.py` output, 80 trials).
+- Scripts: `infra/m5b_plot.py` (figure), `infra/m5b_analyze.py` (all report tables; usage in its docstring).
 
 ## Why
 
@@ -23,8 +31,16 @@ Both models were run with seeds 42–45 per cell.
   - KV is strong to R4000 and weak at R16000 by eye, but the test isn't significant with 4 seeds.
   - LT is about 0 from L1600 on; L320 gets only partial credit.
   - `none` was skipped (user, cost).
-- **Per-cell rewards:** in chat 2026-11-16 15:18 UTC+8, and recomputable from `runs/m5b-{gemma4-e4b,ministral3-8b}-clm/trials/*/verifier/reward.json`.
-- **Not done:** a written note in `.agent/notes/` comparing with Qwen (M5), plus a plot (`infra/cb_progress_plot.py` / `cb_report.py`).
+- **Slope vs Qwen (logistic, `success ~ model × log2 pressure + family`):** both are significantly flatter than Qwen 9B
+  (interaction +0.58, p = 0.028 Gemma; +0.61, p = 0.021 Ministral) and indistinguishable from Qwen 4B (n.s.).
+- **Mechanism (success = avoid the 32k wall, then answer right):**
+  - Qwen 9B: walls mid-stream, rising with pressure; KV 16/16 correct when no wall.
+  - Ministral: same mid-stream walls, but flat in pressure (LT 14/16 walls); KV 8/8 correct when no wall.
+    382 of its 507 no-tool replies are `bash {…}` text (it imitates the rebuilt history).
+  - Gemma: all 10 walls in the first 10% of the stream (never starts managing context). On completed streams it fails
+    answer extraction: `tr -d ' '` on multi-word values, malformed answer tag, unescaped `grep '[WARN]'`.
+- **Takeaway:** Qwen 9B's pressure drop is not elicited in these two families at 4 seeds; one fails by Qwen's mechanism
+  without the trend, the other fails before context management matters.
 
 ## Models (changed on 2026-11-16, user decision)
 
@@ -56,19 +72,21 @@ The fence parser `infra/fence_tool_parser.py` was kept but is unused. See `decis
   - `send_chat_template_kwargs=false` (in `run_cb_trial.sh`);
   - the `mistral-common` pin (in `setup_pod.sh`);
   - the empty-assistant drop (in `lm_log_proxy.py`).
-- **Open: 2 log files in `/root/lmlog-fallback` on pod `090hikvwfs22gk`** (lines whose volume write failed).
-  Before deleting the pod, append them to `runs/m5-lmlog` (same file names), e.g. with `infra/lmlog_flush.sh /root/lmlog-fallback runs/m5-lmlog`.
-  They only matter for an M6 replay.
+- **Lost:** the 2 `/root/lmlog-fallback` files on pod `090hikvwfs22gk` went with the pod (terminated). Some LM-call
+  lines are missing from `runs/m5-lmlog`; rewards and trial folders are complete. Only matters for an M6 replay.
+- **Report data was extracted on M6 pod `rckduvamr1vclf`** (volume mounted, `nice`/`ionice`), not a new pod: pack
+  small per-trial files + summarise LM logs into `lmlog_summary.jsonl`, then `cb_report.py` locally (needs
+  `data/cb_tasks/*/task.toml` copied in, gitignored). The extraction script is described in the report's Reproduce section.
 
-## Pods (all stopped; terminating needs the user's OK)
+## Pods
 
-| Pod | GPUs | Notes |
-|---|---|---|
-| `090hikvwfs22gk` (`clm-m5b-2xa40-b`) | 2×A40, $1.18/h | M5B run; holds the `/root/lmlog-fallback` files above. Last SSH `root@194.68.245.208 -p 22095` |
-| `ozaojga0i4g45e` (`clm-m5b-2xa40`) | 2×A40 | Llama/Gemma 3 attempt; its host had no free GPUs at restart |
-| `sim3ebk6y0yoaw`, `hcq80a3uhg9e2n` | 1×A40 each | First attempt (Gemma 3 / Llama) |
+All four M5B pods (`090hikvwfs22gk`, `ozaojga0i4g45e`, `sim3ebk6y0yoaw`, `hcq80a3uhg9e2n`) are **terminated** (user OK).
+Data lives on volume `hri0q37of4` (EU-SE-1) under `runs/m5b-*` and `runs/m5-lmlog/m5b-*`. RunPod API, SSH and gotchas: [`handoff-semantic-entropy.md`](handoff-semantic-entropy.md).
 
-All pods are in EU-SE-1 on volume `hri0q37of4` at `/workspace`. RunPod API, SSH and gotchas: [`handoff-semantic-entropy.md`](handoff-semantic-entropy.md).
+## Possible next steps (none agreed)
+
+- More seeds (8, as M5) for Ministral KV, the only cell with a visible-by-eye drop (R16000), to tighten its slope.
+- A fixed Gemma prompt/answer format is out of scope: it would test the harness, not pressure.
 
 ## M6 on these models later
 
