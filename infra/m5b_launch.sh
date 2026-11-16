@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# M5B, one family per GPU of a 2-GPU pod (gemma: GPU 0, :8000, proxy :9000; llama: GPU 1, :8010, proxy :9010).
-# Smoke gate -> skill=clm (seeds 42-45) -> [Gemma: trend rule, fallback 3 4B -> 3 12B]
+# M5B, one family per GPU of a 2-GPU pod (gemma: Gemma 4 E4B, GPU 0, :8000, proxy :9000;
+# mistral: Ministral 3 8B, GPU 1, :8010, proxy :9010). Both use native tool calls.
+# Smoke gate -> skill=clm (seeds 42-45) -> trend rule (reported; no fallback model)
 # -> skill=none smoke (seeds 42-43) -> none-smoke rule -> [seeds 44-45]. Rules: .agent/instruction-m5b.md.
-# Usage: setsid nohup infra/m5b_launch.sh <gemma|llama> > runs/logs/m5b-<family>.log 2>&1 < /dev/null &
+# Usage: [SMOKE_ONLY=1] setsid nohup infra/m5b_launch.sh <gemma|mistral> > runs/logs/m5b-<family>.log 2>&1 < /dev/null &
 set -u
 cd /workspace/apart-epistemics
-case $1 in gemma) chain=(gemma3-4b gemma3-12b); GPU=0; PORT=8000; PROXY=9000 ;;
-  llama) chain=(llama31-8b); GPU=1; PORT=8010; PROXY=9010 ;; *) echo "unknown family"; exit 2 ;; esac
+case $1 in gemma) chain=(gemma4-e4b); GPU=0; PORT=8000; PROXY=9000 ;;
+  mistral) chain=(ministral3-8b); GPU=1; PORT=8010; PROXY=9010 ;; *) echo "unknown family"; exit 2 ;; esac
 mine="vllm serve /root/models/($(IFS="|"; echo "${chain[*]}"))"  # never touch the other family's server
 LEVELS="log-triage-L12800 kv-store-R16000 log-triage-L6400 kv-store-R4000 log-triage-L1600 kv-store-R1000 log-triage-L320 kv-store-R260"
 R=/workspace/apart-epistemics/runs
@@ -47,7 +48,8 @@ for m in "${chain[@]}"; do
   say "$m smoke: $n calls with parsed tool calls; parser:" \
     "$(grep -o 'FENCE kind=[a-z]*' runs/logs/vllm-m5b-$m.log | sort | uniq -c | tr -s ' \n' ' ')" \
     "fence ids replayed: $(cat runs/m5-lmlog/m5b-$m-clm__*-seed42.jsonl | grep -o '"tool_call_id": "fence_' | wc -l)"
-  [[ $n -ge 10 ]] || { say "SMOKE_GATE_FAILED $m"; exit 1; }
+  [[ $n -ge 10 ]] || { say "SMOKE_GATE_FAILED $m"; pkill -f "$mine"; exit 1; }
+  [[ -n ${SMOKE_ONLY:-} ]] && { say "SMOKE_ONLY: stop after the gate"; pkill -f "$mine"; exit 0; }
   queue m5b-$m-clm $m clm "42 43 44 45" skip-smoke
   run m5b-$m-clm 32
   /root/envs/clm-env/bin/python infra/cb_rules.py trend $R/m5b-$m-clm | sed 's/^/  /'

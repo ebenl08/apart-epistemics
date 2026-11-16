@@ -155,3 +155,17 @@ The two M5B pods sat idle with vLLM loaded from the gate failure (~18:45 UTC on 
 - Templates patched: a `fence_` call replays as `content + "```bash\n" + cmd + "\n```"` (= the generated text), so the budget's token count, the context mirror and the M6 prompt checks match Qwen's message shape. Gemma: alternation check removed, consecutive same-role turns merged (the harness sends system, user, user). Llama: date fixed at 26 Jul 2024 (was `strftime_now`) so replays on another day match.
 - Self-check `python3 infra/fence_tool_parser.py` passes (parsing and template round trip, string level). Token-level check and smoke gate still to do on the pod.
 - Deviation to report: Llama/Gemma use text-parsed actions, Qwen native calls. `probe.py` changes handed to the M6 session: `.agent/handoff/handoff-m6-probe-nonqwen.md`.
+
+## 2026-11-16 ~02:35 UTC — M5B smoke on 2×A40 pod `ozaojga0i4g45e`; pod stopped
+- Try 1 (02:09): every turn after the first got HTTP 400 ("can only concatenate list to list"): vLLM passed `content` as a list of parts to the patched templates. Gemma also wrote bare ``` fences, which the parser rejected. Llama passed the ≥10-calls gate anyway and started the full run; the run was killed. Data moved to `runs/m5b-try1-20261116/`.
+- Fixes: `--chat-template-content-format string`; bare fences accepted; the fence language is carried in the call id (`fence_<lang>_<hex>`) so replay stays exact; `SMOKE_ONLY=1` stops a chain after the gate.
+- Try 2 (smoke only), 0 HTTP 400s:
+  - Llama: 89 calls parsed, 13 misses; KV R260 reward 0.42, LT L320 0.
+  - Gemma 4B: KV R260 reward 0 (2 calls, then copies the mirror's `bash {"command": …}` notation and loops for ~460 turns); LT L320 reward 0.
+- Llama misses are mostly ```` ```python ```` fences around a `python3 - <<'PY'` heredoc. Waiting for the user to decide on widening the parser.
+
+## 2026-11-16 ~03:10 UTC — M5B models swapped to native tool callers
+- User: replace Gemma 3 with **Gemma 4 E4B** (`google/gemma-4-E4B-it` @ 4ecc2ba6; vLLM `gemma4` tool + reasoning parsers, vLLM's `tool_chat_template_gemma4.jinja`, thinking on since the harness sends `enable_thinking`). Replace Llama 3.1 8B with **Ministral 3 8B Instruct 2512** (BF16 repo @ f6fae979; `mistral` parser, `--tokenizer-mode/config-format/load-format mistral`; no thinking). The user chose 2512 over 2410. Both are ungated and use native tool calls, so no fence parser. No Gemma fallback chain.
+- Why: the harness's only action is the native `bash` tool. Llama 3.1 and Gemma 3 wrote text (THOUGHT + fences, or the mirror's `bash {…}` notation). Making them work needed a text parser, which is a format deviation from Qwen.
+- Deviations to report: the model set differs from the plan; Ministral has no thinking.
+- Old 2×A40 pod `ozaojga0i4g45e` could not restart (no free GPUs on its host); new pod `090hikvwfs22gk` (2×A40, $1.18/h). Try-2 data moved to `runs/m5b-try2-20261116/`. The M6 non-Qwen probe handoff was archived at the user's request.

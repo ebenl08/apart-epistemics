@@ -49,7 +49,7 @@
 
     {%- if message.tool_calls and (message.tool_calls[0].id or '').startswith('fence_') -%}
         {#- M5B: a call parsed from a ```bash block (infra/fence_tool_parser.py) replays as generated -#}
-        {{- (message.content or '') + '```bash\n' + message.tool_calls[0].function.arguments.command + '\n```' -}}
+        {{- (message.content or '') + '```' + message.tool_calls[0].id.split('_')[1] + '\n' + message.tool_calls[0].function.arguments.command + '\n```' -}}
     {%- else -%}
     {#- Format model tool calls (turns where model indicates they want to call a tool) -#}
     {%- if message.tool_calls -%}

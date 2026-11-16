@@ -96,7 +96,7 @@
         {{- '<|start_header_id|>assistant<|end_header_id|>\n\n' -}}
         {#- M5B: a call parsed from a ```bash block (infra/fence_tool_parser.py) replays as generated #}
         {%- if (message.tool_calls[0].id or '').startswith('fence_') %}
-            {{- (message.content or '') + '```bash\n' + tool_call.arguments.command + '\n```' }}
+            {{- (message.content or '') + '```' + message.tool_calls[0].id.split('_')[1] + '\n' + tool_call.arguments.command + '\n```' }}
         {%- else %}
         {{- '{"name": "' + tool_call.name + '", ' }}
         {{- '"parameters": ' }}

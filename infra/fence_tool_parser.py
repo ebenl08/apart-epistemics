@@ -5,9 +5,9 @@ falling back to the family's native parser when there is no block.
 
 Replay contract (keeps the budget, the context mirror and M6 replay faithful):
   content    = the text before the block, verbatim
-  tool_call  = bash(command=<block body>), id "fence_<hex>"
+  tool_call  = bash(command=<block body>), id "fence_<lang>_<hex>" (lang may be empty)
   the patched chat templates in infra/chat_templates/ render a "fence_" call back as
-  content + "```bash\\n" + command + "\\n```", i.e. the generated text minus any trailing text.
+  content + "```<lang>\\n" + command + "\\n```", i.e. the generated text minus any trailing text.
 Every reply is logged as one "FENCE kind=..." line in the vLLM log (fallback / native / miss).
 
 Serve: --tool-parser-plugin infra/fence_tool_parser.py --tool-call-parser {llama3_json,pythonic}_fence
@@ -21,31 +21,30 @@ import re
 import uuid
 from pathlib import Path
 
-OPEN = re.compile(r"^```(?:bash|sh|shell)[ \t]*\n", re.M)
-CLOSE = "\n```"
+FENCE = re.compile(r"^```([\w+-]*)[ \t]*$", re.M)  # a whole ``` line, with optional language
+LANGS = ("", "bash", "sh", "shell")  # Gemma 3 writes bare ``` fences
 log = logging.getLogger("vllm.fence_tool_parser")
 
 
 def split_fence(text: str) -> tuple[str, str | None, dict]:
-    """(content, command, info). command is None on a miss; info says why / what was dropped."""
-    opens = list(OPEN.finditer(text))
-    if not opens:
-        return text, None, {"reason": "no_block"}
-    o = opens[-1]
-    end = text.rfind(CLOSE, o.end() - 1)  # -1: an empty block is "```bash\n```"
-    if end < o.end() - 1:
-        return text, None, {"reason": "unclosed", "n_blocks": len(opens)}
-    cmd = text[o.end():end] if end >= o.end() else ""
-    post = text[end + len(CLOSE):]
-    info = {"n_blocks": len(opens), "post_chars": len(post.strip())}
+    """(content, command, info). command is None on a miss; info says why / what was dropped.
+    Fence lines pair up in order (open, close); the last pair opened with a shell or no language wins."""
+    f = list(FENCE.finditer(text))
+    pairs = [(o, c) for o, c in zip(f[0::2], f[1::2]) if o.group(1) in LANGS and c.group(1) == ""]
+    if not pairs:
+        reason = "unclosed" if f and len(f) % 2 and f[-1].group(1) in LANGS else "no_block"
+        return text, None, {"reason": reason, "n_fences": len(f)}
+    o, c = pairs[-1]
+    cmd = text[o.end() + 1: max(c.start() - 1, o.end() + 1)]
+    info = {"n_blocks": len(pairs), "lang": o.group(1), "post_chars": len(text[c.end():].strip())}
     if not cmd.strip():
         return text, None, {**info, "reason": "empty_block"}
     return text[: o.start()], cmd, info
 
 
-def render(content: str, command: str) -> str:
-    """What the templates emit for a fence_ call; must equal the generated text (self-check)."""
-    return f"{content}```bash\n{command}\n```"
+def render(content: str, command: str, lang: str = "bash") -> str:
+    """What the templates emit for a fence_<lang>_ call; must equal the generated text (self-check)."""
+    return f"{content}```{lang}\n{command}\n```"
 
 
 try:
@@ -73,7 +72,7 @@ if ToolParser is not None:
             content, cmd, info = split_fence(model_output)
             if cmd is not None:
                 log.info("FENCE kind=fallback %s", json.dumps(info))
-                call = ToolCall(id=f"fence_{uuid.uuid4().hex[:24]}",
+                call = ToolCall(id=f"fence_{info['lang']}_{uuid.uuid4().hex[:24]}",
                                 function=FunctionCall(name="bash", arguments=json.dumps(
                                     {"command": cmd}, ensure_ascii=False)))
                 return ExtractedToolCallInformation(tools_called=True, tool_calls=[call],
@@ -102,16 +101,18 @@ def _selftest() -> None:
 
     llama = ("THOUGHT: I need to look at the log first.\n\n```bash\n"
              "grep -c ERROR /app/log.txt && python3 - <<'PY'\nd = {\"name\": 1}\nprint(d)\nPY\n```")
-    gemma = ("THOUGHT: Compact turn 3.\n```bash\npython3 - <<'PY'\ns = '```'\nprint(s)\nPY\n```")
+    gemma = ("I apologize. Here's the `bash` command:\n\n```\npython3 - <<'PY'\ns = '```'\nprint(s)\nPY\n```")
     for text in (llama, gemma):
         content, cmd, info = split_fence(text)
         assert cmd is not None and info["post_chars"] == 0, info
-        assert render(content, cmd) == text
+        assert render(content, cmd, info["lang"]) == text
     assert split_fence("THOUGHT: x\n```bash\nls")[2]["reason"] == "unclosed"
+    assert split_fence("x\n```python\nprint(1)\n```")[2]["reason"] == "no_block"
+    assert split_fence("ACTION: `ls`")[2]["reason"] == "no_block"
     assert split_fence("THOUGHT: no block")[2]["reason"] == "no_block"
     assert split_fence("```bash\n```")[2]["reason"] == "empty_block"
     c, cmd, info = split_fence("a\n```bash\nls\n```\nthen b\n```sh\npwd\n```\n")
-    assert (cmd, info["n_blocks"], c.endswith("then b\n")) == ("pwd", 2, True)
+    assert (cmd, info["n_blocks"], info["lang"], c.endswith("then b\n")) == ("pwd", 2, "sh", True)
 
     # Template round trip: the rendered assistant turn must be exactly the generated text.
     tdir = Path(__file__).parent / "chat_templates"
@@ -123,13 +124,14 @@ def _selftest() -> None:
         "tool_chat_template_gemma3_pythonic.jinja": (gemma, "<start_of_turn>model\n", "<end_of_turn>"),
     }
     for name, (text, head, eot) in cases.items():
-        content, cmd, _ = split_fence(text)
+        content, cmd, info = split_fence(text)
+        fid = f"fence_{info['lang']}_ab"
         msgs = [{"role": "system", "content": "sys"}, {"role": "user", "content": "task"},
                 {"role": "user", "content": "ledger"},  # harness sends system, user, user
                 {"role": "assistant", "content": content, "tool_calls": [
-                    {"id": "fence_ab", "type": "function",
+                    {"id": fid, "type": "function",
                      "function": {"name": "bash", "arguments": {"command": cmd}}}]},
-                {"role": "tool", "tool_call_id": "fence_ab", "content": "3"},
+                {"role": "tool", "tool_call_id": fid, "content": "3"},
                 {"role": "user", "content": "[SYSTEM NOTICE] x"}]
         t = env.from_string((tdir / name).read_text())
         out = t.render(messages=msgs, tools=tools, bos_token="<bos>", add_generation_prompt=True,
